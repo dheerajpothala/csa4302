@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GoBus - Bus Ticket Booking</title>
+<style>
+:root{--c:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#f5f5f7;color:#222}
+header{background:var(--c);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-size:1.25rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#fff;opacity:.92;padding:6px 10px;border-radius:6px;font-size:.9rem;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.2)}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+h1,h2{color:var(--c);margin-top:0}
+.card{background:#fff;border-radius:8px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+.narrow{max-width:440px;margin:24px auto}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:.9rem}
+input,select,textarea{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+textarea{min-height:80px}
+button{background:var(--c);color:#fff;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button.red{background:#555}button.grey{background:#777}button.s{padding:4px 9px;font-size:.82rem}
+button:disabled{background:#bbb;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.row>*{flex:1;min-width:130px}.row button{flex:0 0 auto}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:left;font-size:.9rem}
+th{background:#f6dcd8}
+.tw{overflow-x:auto}
+.ok{color:#1d7a35;font-weight:600}.bad{color:#b8423a;font-weight:600}.muted{color:#666;font-size:.88rem}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:12px}.msg.s{background:#def3e2;color:#1d5a2a}.msg.e{background:#fbe0de;color:#8a2822}
+.bus{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.seats{display:grid;grid-template-columns:repeat(5,44px);gap:8px;justify-content:center;margin:14px 0}
+.seat{height:40px;border-radius:6px;border:1px solid #888;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;user-select:none}
+.seat.taken{background:#999;color:#fff;cursor:not-allowed}.seat.sel{background:var(--c);color:#fff}.seat.gap{visibility:hidden}
+.ticket{border:2px dashed var(--c);padding:16px;border-radius:8px;background:#fffaf9}
+.stat{display:inline-block;background:#fff;border-left:5px solid var(--c);padding:12px 18px;margin:0 10px 10px 0;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.stat b{display:block;font-size:1.5rem}
+</style>
+</head>
+<body>
+<header><div class="brand">&#128652; GoBus</div><nav id="nav"></nav></header>
+<main>
+<div id="msg"></div>
+
+<!-- ============ AUTH ============ -->
+<section class="page" id="login"><div class="card narrow"><h1>Login</h1>
+  <label>Username</label><input id="l_u"><label>Password</label><input id="l_p" type="password">
+  <label>Login as</label><select id="l_r"><option value="user">User</option><option value="admin">Admin</option></select>
+  <p><button onclick="doLogin()">Login</button></p>
+  <p class="muted">Demo: any username/password works. <a href="#" onclick="show('forgot');return false">Forgot password?</a> &middot; <a href="#" onclick="show('register');return false">Register</a></p></div></section>
+<section class="page" id="register"><div class="card narrow"><h1>Registration</h1>
+  <label>Full name</label><input id="r_n"><label>Email</label><input id="r_e" type="email"><label>Phone</label><input id="r_ph">
+  <label>Username</label><input id="r_u"><label>Password</label><input id="r_p" type="password">
+  <p><button onclick="doRegister()">Register</button></p></div></section>
+<section class="page" id="forgot"><div class="card narrow"><h1>Forgot Password</h1>
+  <label>Registered email</label><input id="f_e" type="email"><p><button onclick="doForgot()">Send reset link</button></p></div></section>
+<section class="page" id="chpw"><div class="card narrow"><h1>Change Password</h1>
+  <label>Old password</label><input id="c_o" type="password"><label>New password</label><input id="c_n" type="password"><label>Confirm new password</label><input id="c_c" type="password">
+  <p><button onclick="doChange()">Change Password</button></p></div></section>
+
+<!-- ============ USER ============ -->
+<section class="page" id="search">
+  <div class="card"><h1>Search Buses</h1><div class="row">
+    <div><label>From</label><select id="s_f"></select></div><div><label>To</label><select id="s_t"></select></div>
+    <div><label>Date</label><input type="date" id="s_d"></div>
+    <div><label>Departure time</label><select id="s_tm"><option value="">Any time</option><option value="m">Morning (before 12:00)</option><option value="a">Afternoon (12:00-17:59)</option><option value="n">Night (after 18:00)</option></select></div>
+    <button onclick="searchBus()">Search</button></div></div>
+  <div id="results"></div></section>
+
+<section class="page" id="seatpage"><div class="card"><h1>Select Seats</h1><p id="sp_info"></p>
+  <p class="muted">Green = available, Grey = booked, Red = your selection.</p><div class="seats" id="seatgrid"></div>
+  <p>Selected: <b id="sp_sel">none</b> &nbsp; Total: <b id="sp_tot">Rs. 0</b></p>
+  <h2>Passenger Details</h2><div class="row"><div><label>Name</label><input id="pd_n"></div><div><label>Age</label><input id="pd_a" type="number" min="1"></div><div><label>Phone</label><input id="pd_p"></div></div>
+  <p><button onclick="bookSeats()">Book Ticket</button> <button class="grey" onclick="show('search')">Back</button></p></div></section>
+
+<section class="page" id="ticket"><div class="card narrow"><h1>Booking Confirmed</h1><div class="ticket" id="tk"></div>
+  <p class="muted">A confirmation email has been sent to your registered address.</p><p><button onclick="show('mybookings')">My Bookings</button></p></div></section>
+
+<section class="page" id="mybookings"><h1>My Booking History</h1><div class="tw" id="mb"></div></section>
+
+<section class="page" id="comments"><div class="card"><h1>Bus Comments</h1>
+  <label>Bus</label><select id="cm_bus" onchange="drawComments()"></select>
+  <div id="cm_list" style="margin-top:12px"></div>
+  <label>Your comment</label><textarea id="cm_t"></textarea><p><button onclick="postComment()">Post Comment</button></p></div></section>
+
+<!-- ============ ADMIN ============ -->
+<section class="page" id="a_cat"><div class="card"><h1>Bus Categories</h1><div id="cat_list"></div>
+  <div class="row" style="margin-top:12px"><div><label>New category</label><input id="cat_n" placeholder="e.g. AC Sleeper"></div><button onclick="addCat()">Add Category</button></div></div></section>
+<section class="page" id="a_bus"><div class="card"><h1>Add / Update Bus</h1>
+  <input type="hidden" id="ab_id">
+  <div class="row"><div><label>Bus name</label><input id="ab_n"></div><div><label>Category</label><select id="ab_c"></select></div><div><label>Photo (emoji or URL)</label><input id="ab_ph" value="&#128652;"></div></div>
+  <div class="row"><div><label>From</label><input id="ab_f"></div><div><label>To</label><input id="ab_t"></div><div><label>Tour location</label><input id="ab_l"></div></div>
+  <div class="row"><div><label>Departure time</label><input id="ab_tm" type="time" value="21:00"></div><div><label>Fare (Rs.)</label><input id="ab_fare" type="number" value="600"></div><div><label>Available seats (max 40)</label><input id="ab_s" type="number" value="40" max="40"></div></div>
+  <label>Description</label><textarea id="ab_d"></textarea><p><button onclick="saveBus()">Save Bus</button> <button class="grey" onclick="clearBusForm()">Clear</button></p></div>
+  <div class="tw" id="ab_list"></div></section>
+<section class="page" id="a_users"><h1>Registered Users</h1><div class="tw" id="au"></div></section>
+<section class="page" id="a_news"><div class="card"><h1>Manage News</h1><div id="nw_list"></div>
+  <label>New headline</label><input id="nw_t"><p><button onclick="addNews()">Publish News</button></p></div></section>
+<section class="page" id="a_report"><h1>Report</h1><div id="rp"></div></section>
+</main>
+
+<script>
+function $(i){return document.getElementById(i)}
+function pad(n){return (n<10?'0':'')+n}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function msg(t,ok){$('msg').innerHTML='<div class="msg '+(ok===false?'e':'s')+'">'+t+'</div>';window.scrollTo(0,0)}
+function show(id){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!==id});$('msg').innerHTML='';window.scrollTo(0,0);if(window['on_'+id])window['on_'+id]();drawNav()}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// ------------------------------------------------ data (in memory)
+var cats=['Volvo','Sleeper Coach','Coach'];
+var buses=[
+ {id:1,name:'Volvo Express',cat:'Volvo',from:'Chennai',to:'Bangalore',time:'22:00',fare:850,seats:40,loc:'Bangalore City',photo:'\u{1F68C}',desc:'AC multi-axle Volvo with push-back seats.',taken:[2,3,10,17]},
+ {id:2,name:'Night Rider Sleeper',cat:'Sleeper Coach',from:'Chennai',to:'Hyderabad',time:'20:30',fare:1100,seats:40,loc:'Hyderabad',photo:'\u{1F6CF}',desc:'Comfortable sleeper berths with charging points.',taken:[1,5,6]},
+ {id:3,name:'City Link Coach',cat:'Coach',from:'Bangalore',to:'Chennai',time:'09:15',fare:500,seats:40,loc:'Chennai',photo:'\u{1F68D}',desc:'Daily day service, non-AC coach.',taken:[8,9]},
+ {id:4,name:'Volvo Premium',cat:'Volvo',from:'Chennai',to:'Bangalore',time:'14:00',fare:900,seats:40,loc:'Bangalore City',photo:'\u{1F68C}',desc:'Afternoon AC service with snacks.',taken:[]}];
+var users=[{u:'guest',n:'Demo User',e:'guest@mail.com',ph:'9999999999'}];
+var bookings=[], nextB=5001, news=['New Volvo service from Chennai to Bangalore starts this week!','Festival offer: 10% off on all sleeper coaches.'];
+var comments={1:[{u:'guest',t:'Very comfortable journey and on time.'}]};
+var me=null, cur=null, sel=[];
+
+// ------------------------------------------------ navigation
+function drawNav(){
+  var l;
+  if(!me)l=[['login','Login'],['register','Register'],['forgot','Forgot Password']];
+  else if(me.role==='user')l=[['search','Search Bus'],['mybookings','My Bookings'],['comments','Comments'],['chpw','Change Password'],['out','Logout']];
+  else l=[['a_cat','Categories'],['a_bus','Buses'],['a_users','Users'],['a_news','News'],['a_report','Report'],['out','Logout']];
+  $('nav').innerHTML=l.map(function(x){return '<a onclick="'+(x[0]==='out'?'logout()':"show('"+x[0]+"')")+'">'+x[1]+'</a>'}).join('');
+}
+function logout(){me=null;show('login');msg('Logged out.')}
+
+// ------------------------------------------------ auth
+function doLogin(){
+  if(!$('l_u').value.trim()||!$('l_p').value)return msg('Enter username and password.',false);
+  me={u:$('l_u').value.trim(),role:$('l_r').value};
+  if(me.role==='user'&&!users.some(function(x){return x.u===me.u}))users.push({u:me.u,n:me.u,e:'',ph:''});
+  show(me.role==='admin'?'a_report':'search');msg('Welcome, '+me.u+'!');
+}
+function doRegister(){
+  if(!$('r_n').value.trim()||!$('r_u').value.trim()||!$('r_p').value)return msg('Name, username and password are required.',false);
+  users.push({u:$('r_u').value.trim(),n:$('r_n').value.trim(),e:$('r_e').value,ph:$('r_ph').value});show('login');msg('Registration successful. Please log in.');
+}
+function doForgot(){if(!$('f_e').value.includes('@'))return msg('Enter a valid email.',false);msg('A password reset link has been sent to '+esc($('f_e').value)+'.')}
+function doChange(){
+  if(!$('c_o').value||$('c_n').value.length<4)return msg('Enter old password and a new password of 4+ characters.',false);
+  if($('c_n').value!==$('c_c').value)return msg('New passwords do not match.',false);
+  $('c_o').value=$('c_n').value=$('c_c').value='';msg('Password changed successfully.');
+}
+
+// ------------------------------------------------ search
+function on_search(){
+  var places=[];buses.forEach(function(b){[b.from,b.to].forEach(function(p){if(places.indexOf(p)<0)places.push(p)})});places.sort();
+  var o=places.map(function(p){return '<option>'+p+'</option>'}).join('');
+  if(!$('s_f').options.length){$('s_f').innerHTML=o;$('s_t').innerHTML=o;$('s_t').selectedIndex=Math.min(1,places.length-1);$('s_d').value=addDays(1)}
+}
+function inSlot(t,s){var h=+t.split(':')[0];return !s||(s==='m'&&h<12)||(s==='a'&&h>=12&&h<18)||(s==='n'&&h>=18)}
+function searchBus(){
+  var f=$('s_f').value,t=$('s_t').value,s=$('s_tm').value;
+  var r=buses.filter(function(b){return b.from===f&&b.to===t&&inSlot(b.time,s)});
+  $('results').innerHTML=r.length?r.map(function(b){
+    return '<div class="card bus"><div><h2>'+esc(b.photo)+' '+esc(b.name)+'</h2><span class="muted">'+esc(b.cat)+' &middot; '+esc(b.from)+' &rarr; '+esc(b.to)+' &middot; Departs '+b.time+'</span><br>'+esc(b.desc)+
+    '</div><div><b>Rs. '+b.fare+'</b><br><span class="ok">'+(b.seats-b.taken.length)+' seats available</span><br><br><button onclick="openSeats('+b.id+')">View Seats</button></div></div>'}).join(''):'<div class="card">No buses found for this route/time.</div>';
+}
+function openSeats(id){cur=buses.find(function(b){return b.id===id});sel=[];show('seatpage')}
+function on_seatpage(){
+  $('sp_info').innerHTML='<b>'+esc(cur.name)+'</b> - '+esc(cur.from)+' to '+esc(cur.to)+', '+$('s_d').value+' at '+cur.time+'. Fare Rs. '+cur.fare+' per seat';
+  drawSeats();
+}
+function drawSeats(){
+  var h='';
+  for(var i=1;i<=cur.seats;i++){
+    var t=cur.taken.indexOf(i)>=0,s=sel.indexOf(i)>=0;
+    h+='<div class="seat'+(t?' taken':'')+(s?' sel':'')+'" '+(t?'':'onclick="pick('+i+')"')+'>'+i+'</div>';
+    if(i%4===2)h+='<div class="seat gap"></div>';
+  }
+  $('seatgrid').innerHTML=h;$('sp_sel').textContent=sel.length?sel.slice().sort(function(a,b){return a-b}).join(', '):'none';$('sp_tot').textContent='Rs. '+(sel.length*cur.fare);
+}
+function pick(i){var k=sel.indexOf(i);if(k>=0)sel.splice(k,1);else if(sel.length<6)sel.push(i);else msg('You can select at most 6 seats.',false);drawSeats()}
+function bookSeats(){
+  if(!sel.length)return msg('Select at least one seat.',false);
+  if(!$('pd_n').value.trim()||!($('pd_a').value>0)||$('pd_p').value.replace(/\D/g,'').length<10)return msg('Enter passenger name, age and a 10-digit phone number.',false);
+  var b={id:nextB++,bus:cur.id,seats:sel.slice().sort(function(a,b){return a-b}),date:$('s_d').value,name:$('pd_n').value.trim(),total:sel.length*cur.fare,by:me.u,status:'Booked'};
+  cur.taken=cur.taken.concat(b.seats);bookings.push(b);
+  show('ticket');
+  $('tk').innerHTML='<b>Ticket #'+b.id+'</b><br>'+esc(cur.name)+' ('+esc(cur.cat)+')<br>'+esc(cur.from)+' &rarr; '+esc(cur.to)+'<br>Date: '+b.date+' &middot; Time: '+cur.time+'<br>Passenger: '+esc(b.name)+'<br>Seats: '+b.seats.join(', ')+'<br><b>Amount paid: Rs. '+b.total+'</b>';
+}
+
+// ------------------------------------------------ my bookings / cancel
+function busOf(id){return buses.find(function(b){return b.id===id})||{name:'(removed)',from:'',to:'',taken:[]}}
+function on_mybookings(){
+  var r=bookings.filter(function(b){return b.by===me.u}).map(function(b){var x=busOf(b.bus);
+    return '<tr><td>#'+b.id+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.from)+' &rarr; '+esc(x.to)+'</td><td>'+b.date+'</td><td>'+b.seats.join(', ')+'</td><td>Rs. '+b.total+'</td><td class="'+(b.status==='Booked'?'ok':'bad')+'">'+b.status+'</td>'+
+    '<td><button class="s red" '+(b.status==='Booked'?'':'disabled')+' onclick="cancelTicket('+b.id+')">Cancel Ticket</button></td></tr>'}).join('')||'<tr><td colspan="8">No bookings yet.</td></tr>';
+  $('mb').innerHTML='<table><tr><th>Ticket</th><th>Bus</th><th>Route</th><th>Date</th><th>Seats</th><th>Amount</th><th>Status</th><th>Action</th></tr>'+r+'</table>';
+}
+function cancelTicket(id){
+  var b=bookings.find(function(x){return x.id===id});if(!confirm('Cancel ticket #'+id+'?'))return;
+  b.status='Cancelled';var x=busOf(b.bus);x.taken=x.taken.filter(function(s){return b.seats.indexOf(s)<0});on_mybookings();msg('Ticket cancelled and seats released.');
+}
+
+// ------------------------------------------------ comments
+function on_comments(){$('cm_bus').innerHTML=buses.map(function(b){return '<option value="'+b.id+'">'+esc(b.name)+'</option>'}).join('');drawComments()}
+function drawComments(){var c=comments[$('cm_bus').value]||[];$('cm_list').innerHTML=c.length?c.map(function(x){return '<p><b>'+esc(x.u)+':</b> '+esc(x.t)+'</p>'}).join(''):'<p class="muted">No comments yet. Be the first!</p>'}
+function postComment(){var t=$('cm_t').value.trim();if(!t)return msg('Write a comment first.',false);var k=$('cm_bus').value;(comments[k]=comments[k]||[]).push({u:me.u,t:t});$('cm_t').value='';drawComments();msg('Comment posted.')}
+
+// ------------------------------------------------ admin
+function on_a_cat(){$('cat_list').innerHTML='<table><tr><th>Category</th><th></th></tr>'+cats.map(function(c,i){return '<tr><td>'+esc(c)+'</td><td><button class="s red" onclick="delCat('+i+')">Delete</button></td></tr>'}).join('')+'</table>'}
+function addCat(){var n=$('cat_n').value.trim();if(!n)return msg('Enter a category name.',false);if(cats.indexOf(n)>=0)return msg('Category already exists.',false);cats.push(n);$('cat_n').value='';on_a_cat();msg('Category added.')}
+function delCat(i){cats.splice(i,1);on_a_cat()}
+function on_a_bus(){$('ab_c').innerHTML=cats.map(function(c){return '<option>'+esc(c)+'</option>'}).join('');drawBusList()}
+function drawBusList(){
+  $('ab_list').innerHTML='<table><tr><th>Bus</th><th>Category</th><th>Route</th><th>Time</th><th>Fare</th><th>Seats free</th><th></th></tr>'+buses.map(function(b){
+    return '<tr><td>'+esc(b.photo)+' '+esc(b.name)+'</td><td>'+esc(b.cat)+'</td><td>'+esc(b.from)+' &rarr; '+esc(b.to)+'</td><td>'+b.time+'</td><td>'+b.fare+'</td><td>'+(b.seats-b.taken.length)+'</td><td><button class="s" onclick="editBus('+b.id+')">Edit</button> <button class="s red" onclick="delBus('+b.id+')">Delete</button></td></tr>'}).join('')+'</table>';
+}
+function editBus(id){var b=buses.find(function(x){return x.id===id});$('ab_id').value=id;$('ab_n').value=b.name;$('ab_c').value=b.cat;$('ab_ph').value=b.photo;$('ab_f').value=b.from;$('ab_t').value=b.to;$('ab_l').value=b.loc;$('ab_tm').value=b.time;$('ab_fare').value=b.fare;$('ab_s').value=b.seats;$('ab_d').value=b.desc;window.scrollTo(0,0)}
+function clearBusForm(){['ab_id','ab_n','ab_f','ab_t','ab_l','ab_d'].forEach(function(i){$(i).value=''})}
+function saveBus(){
+  var n=$('ab_n').value.trim(),f=$('ab_f').value.trim(),t=$('ab_t').value.trim(),s=Math.min(40,+$('ab_s').value);
+  if(!n||!f||!t||!(s>0)||!($('ab_fare').value>0))return msg('Fill in name, route, fare and seats.',false);
+  var id=+$('ab_id').value,b=id?buses.find(function(x){return x.id===id}):null;
+  if(!b){b={id:buses.reduce(function(m,x){return Math.max(m,x.id)},0)+1,taken:[]};buses.push(b)}
+  b.name=n;b.cat=$('ab_c').value;b.photo=$('ab_ph').value||'\u{1F68C}';b.from=f;b.to=t;b.loc=$('ab_l').value;b.time=$('ab_tm').value;b.fare=+$('ab_fare').value;b.seats=s;b.desc=$('ab_d').value;
+  clearBusForm();drawBusList();msg('Bus saved.');
+}
+function delBus(id){if(confirm('Delete this bus?')){buses=buses.filter(function(b){return b.id!==id});drawBusList()}}
+function on_a_users(){$('au').innerHTML='<table><tr><th>Username</th><th>Name</th><th>Email</th><th>Phone</th><th></th></tr>'+users.map(function(u,i){return '<tr><td>'+esc(u.u)+'</td><td>'+esc(u.n)+'</td><td>'+esc(u.e)+'</td><td>'+esc(u.ph)+'</td><td><button class="s red" onclick="delUser('+i+')">Remove</button></td></tr>'}).join('')+'</table>'}
+function delUser(i){if(confirm('Remove this user?')){users.splice(i,1);on_a_users()}}
+function on_a_news(){$('nw_list').innerHTML='<ul>'+news.map(function(n,i){return '<li>'+esc(n)+' <button class="s red" onclick="delNews('+i+')">x</button></li>'}).join('')+'</ul>'}
+function addNews(){var t=$('nw_t').value.trim();if(!t)return msg('Enter a headline.',false);news.unshift(t);$('nw_t').value='';on_a_news();msg('News published.')}
+function delNews(i){news.splice(i,1);on_a_news()}
+function on_a_report(){
+  var ok=bookings.filter(function(b){return b.status==='Booked'}),rev=ok.reduce(function(s,b){return s+b.total},0);
+  var per=buses.map(function(b){var x=ok.filter(function(k){return k.bus===b.id});return '<tr><td>'+esc(b.name)+'</td><td>'+x.length+'</td><td>'+x.reduce(function(s,k){return s+k.seats.length},0)+'</td><td>Rs. '+x.reduce(function(s,k){return s+k.total},0)+'</td></tr>'}).join('');
+  $('rp').innerHTML='<div class="stat"><b>'+ok.length+'</b>Active bookings</div><div class="stat"><b>'+(bookings.length-ok.length)+'</b>Cancelled</div><div class="stat"><b>Rs. '+rev+'</b>Revenue</div><div class="stat"><b>'+users.length+'</b>Users</div>'+
+   '<div class="tw"><table><tr><th>Bus</th><th>Bookings</th><th>Seats sold</th><th>Revenue</th></tr>'+per+'</table></div><p><button onclick="window.print()">Print Report</button></p>';
+}
+
+show('login');
+</script>
+</body>
+</html>

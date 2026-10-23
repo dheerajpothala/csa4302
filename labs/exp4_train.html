@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RailBook - Train Reservation</title>
+<style>
+:root{--c:#1a5276}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#f1f5f9;color:#222}
+header{background:var(--c);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-size:1.25rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#fff;opacity:.92;padding:6px 10px;border-radius:6px;font-size:.9rem;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.2)}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+h1,h2{color:var(--c);margin-top:0}
+.card{background:#fff;border-radius:8px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+.narrow{max-width:440px;margin:24px auto}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:.9rem}
+input,select{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+button{background:var(--c);color:#fff;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button.red{background:#b8423a}button.grey{background:#777}button.s{padding:4px 9px;font-size:.82rem}
+button:disabled{background:#bbb;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.row>*{flex:1;min-width:120px}.row button{flex:0 0 auto}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:left;font-size:.9rem}
+th{background:#d6e6f2}
+.tw{overflow-x:auto}
+.ok{color:#1d7a35;font-weight:600}.bad{color:#b8423a;font-weight:600}.warn{color:#b9770e;font-weight:600}.muted{color:#666;font-size:.88rem}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:12px}.msg.s{background:#def3e2;color:#1d5a2a}.msg.e{background:#fbe0de;color:#8a2822}
+.ticket{border:2px dashed var(--c);padding:16px;border-radius:8px;background:#f7fbff}
+.pnr{font-size:1.8rem;letter-spacing:2px;color:var(--c);font-weight:700}
+.stat{display:inline-block;background:#fff;border-left:5px solid var(--c);padding:12px 18px;margin:0 10px 10px 0;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.stat b{display:block;font-size:1.5rem}
+</style>
+</head>
+<body>
+<header><div class="brand">&#128646; RailBook</div><nav id="nav"></nav></header>
+<main>
+<div id="msg"></div>
+
+<section class="page" id="login"><div class="card narrow"><h1>Login</h1>
+  <label>Username</label><input id="l_u"><label>Password</label><input id="l_p" type="password">
+  <label>Login as</label><select id="l_r"><option value="user">Passenger</option><option value="admin">Admin</option></select>
+  <p><button onclick="doLogin()">Login</button></p>
+  <p class="muted">Demo: any credentials work. New user? <a href="#" onclick="show('register');return false">Register</a></p></div></section>
+<section class="page" id="register"><div class="card narrow"><h1>Register</h1>
+  <label>Full name</label><input id="r_n"><label>Email</label><input id="r_e" type="email"><label>Username</label><input id="r_u"><label>Password</label><input id="r_p" type="password">
+  <p><button onclick="doRegister()">Register</button></p></div></section>
+
+<!-- ========== PASSENGER ========== -->
+<section class="page" id="search">
+  <div class="card"><h1>Search Trains</h1><div class="row">
+    <div><label>From station</label><select id="s_f"></select></div><div><label>To station</label><select id="s_t"></select></div>
+    <div><label>Date of journey</label><input type="date" id="s_d"></div>
+    <div><label>Class</label><select id="s_c"></select></div><button onclick="searchTrains()">Find Trains</button></div></div>
+  <div id="results"></div></section>
+
+<section class="page" id="book"><div class="card"><h1>Passenger Details</h1><p id="bk_info"></p>
+  <div id="bk_rows"></div><p><button class="grey s" onclick="addPax()">+ Add passenger</button></p>
+  <h2>Payment</h2><div class="row"><div><label>Payment mode</label><select id="bk_pm" onchange="payMode()"><option value="Online">Online (card / UPI)</option><option value="Offline">Offline (pay at counter)</option></select></div>
+  <div id="card_box"><label>Card / UPI id</label><input id="bk_card" placeholder="1234 5678 9012 3456 or name@upi"></div></div>
+  <p><b id="bk_total"></b></p><p><button onclick="payBook()">Pay &amp; Generate Ticket</button> <button class="grey" onclick="show('search')">Back</button></p></div></section>
+
+<section class="page" id="ticket"><div class="card narrow"><h1>Ticket Generated</h1><div class="ticket" id="tk"></div>
+  <p class="muted">Payment details have been sent to the system admin. Confirmation sent to your email.</p><p><button onclick="window.print()">Print Ticket</button> <button class="grey" onclick="show('mybookings')">My Bookings</button></p></div></section>
+
+<section class="page" id="pnr"><div class="card narrow"><h1>PNR Status</h1><label>Enter 10-digit PNR</label><input id="pn_n" maxlength="10">
+  <p><button onclick="checkPnr()">Check Status</button></p><div id="pn_res"></div></div></section>
+
+<section class="page" id="cancel"><div class="card narrow"><h1>Cancel Ticket</h1>
+  <p class="muted">Refund rules: more than 2 days before journey = 80% refund; 1-2 days = 50%; on the day = 25%.</p>
+  <label>PNR number</label><input id="cn_n" maxlength="10"><p><button onclick="findCancel()">Find Ticket</button></p><div id="cn_res"></div></div></section>
+
+<section class="page" id="mybookings"><h1>My Booking History</h1><div class="tw" id="mb"></div></section>
+
+<!-- ========== ADMIN ========== -->
+<section class="page" id="a_trains"><h1>Manage Trains, Fares &amp; Seats</h1>
+  <p class="muted">Fares can be set per class. Weekend journeys (Sat/Sun) cost 10% extra (date-wise fare).</p><div class="tw" id="at"></div></section>
+<section class="page" id="a_pay"><h1>Payment Details</h1><div id="ap_stats"></div><div class="tw" id="ap"></div></section>
+<section class="page" id="a_refund"><h1>Refund Requests</h1><div class="tw" id="ar"></div></section>
+</main>
+
+<script>
+function $(i){return document.getElementById(i)}
+function pad(n){return (n<10?'0':'')+n}
+function fmt(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return fmt(d)}
+function days(a,b){var x=a.split('-'),y=b.split('-');return Math.round((Date.UTC(+y[0],+y[1]-1,+y[2])-Date.UTC(+x[0],+x[1]-1,+x[2]))/864e5)}
+function msg(t,ok){$('msg').innerHTML='<div class="msg '+(ok===false?'e':'s')+'">'+t+'</div>';window.scrollTo(0,0)}
+function show(id){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!==id});$('msg').innerHTML='';window.scrollTo(0,0);if(window['on_'+id])window['on_'+id]();drawNav()}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// ------------------------------------------------ data
+var CLASSES=['SL','3A','2A','1A'], RAC_LIMIT=2;
+var trains=[
+ {no:'12601',name:'Chennai Mail',from:'Chennai',to:'Bangalore',via:'Katpadi, Jolarpet',dep:'06:00',arr:'11:30',fare:{SL:250,'3A':650,'2A':900,'1A':1500},seats:{SL:40,'3A':20,'2A':10,'1A':4}},
+ {no:'12027',name:'Shatabdi Express',from:'Chennai',to:'Bangalore',via:'Katpadi',dep:'15:30',arr:'20:30',fare:{SL:300,'3A':720,'2A':980,'1A':1650},seats:{SL:30,'3A':15,'2A':8,'1A':2}},
+ {no:'12433',name:'Rajdhani Express',from:'Chennai',to:'Delhi',via:'Vijayawada, Nagpur, Agra',dep:'22:00',arr:'06:00',fare:{SL:900,'3A':1900,'2A':2600,'1A':4300},seats:{SL:50,'3A':30,'2A':14,'1A':6}},
+ {no:'12608',name:'Lalbagh Express',from:'Bangalore',to:'Chennai',via:'Jolarpet, Katpadi',dep:'06:30',arr:'11:50',fare:{SL:240,'3A':640,'2A':890,'1A':1480},seats:{SL:40,'3A':20,'2A':10,'1A':4}}];
+var users=[], tickets=[], refunds=[], nextPnr=2410001000, me=null, cur=null, curClass='SL', curDate='';
+var REFUND_RULES=[{min:3,pct:80},{min:1,pct:50},{min:0,pct:25}];
+
+function drawNav(){
+  var l;
+  if(!me)l=[['login','Login'],['register','Register']];
+  else if(me.role==='user')l=[['search','Search Trains'],['pnr','PNR Status'],['cancel','Cancel Ticket'],['mybookings','My Bookings'],['out','Logout']];
+  else l=[['a_trains','Trains &amp; Fares'],['a_pay','Payments'],['a_refund','Refunds'],['pnr','PNR Status'],['out','Logout']];
+  $('nav').innerHTML=l.map(function(x){return '<a onclick="'+(x[0]==='out'?'logout()':"show('"+x[0]+"')")+'">'+x[1]+'</a>'}).join('');
+}
+function logout(){me=null;show('login');msg('Logged out.')}
+function doLogin(){
+  if(!$('l_u').value.trim()||!$('l_p').value)return msg('Enter valid credentials.',false);
+  me={u:$('l_u').value.trim(),role:$('l_r').value};show(me.role==='admin'?'a_trains':'search');msg('Welcome, '+esc(me.u)+'!');
+}
+function doRegister(){
+  if(!$('r_n').value.trim()||!$('r_u').value.trim()||!$('r_p').value)return msg('Fill in all required fields.',false);
+  users.push($('r_u').value.trim());show('login');msg('Registration successful. Please log in.');
+}
+
+// ------------------------------------------------ search & seat availability
+function fare(t,c,date){var d=new Date(date+'T00:00:00').getDay();return Math.round(t.fare[c]*((d===0||d===6)?1.1:1))}
+function used(t,c,date){return tickets.filter(function(k){return k.train===t.no&&k.cls===c&&k.date===date&&k.status!=='Cancelled'&&k.status!=='Waiting'&&k.status!=='RAC'}).reduce(function(s,k){return s+k.pax.length},0)}
+function avail(t,c,date){return Math.max(0,t.seats[c]-used(t,c,date))}
+function on_search(){
+  if(!$('s_f').options.length){
+    var st=[];trains.forEach(function(t){[t.from,t.to].forEach(function(p){if(st.indexOf(p)<0)st.push(p)})});st.sort();
+    var o=st.map(function(p){return '<option>'+p+'</option>'}).join('');$('s_f').innerHTML=o;$('s_t').innerHTML=o;$('s_t').selectedIndex=Math.min(1,st.length-1);
+    $('s_c').innerHTML=CLASSES.map(function(c){return '<option>'+c+'</option>'}).join('');$('s_d').value=addDays(5);
+  }
+}
+function searchTrains(){
+  var f=$('s_f').value,t=$('s_t').value,c=$('s_c').value,d=$('s_d').value;
+  if(!d||d<fmt(new Date()))return msg('Choose a valid journey date.',false);
+  var r=trains.filter(function(x){return x.from===f&&x.to===t});
+  $('results').innerHTML=r.length?r.map(function(x){var a=avail(x,c,d);
+    return '<div class="card"><div class="row"><div><h2>'+esc(x.name)+' ('+x.no+')</h2><span class="muted">'+x.from+' '+x.dep+' &rarr; '+x.to+' '+x.arr+'<br>Via: '+esc(x.via)+'</span></div>'+
+    '<div><b>Class '+c+': Rs. '+fare(x,c,d)+'</b><br>'+(a>0?'<span class="ok">Available '+a+'</span>':'<span class="warn">Waiting list</span>')+'</div>'+
+    '<button onclick="startBook(\''+x.no+'\',\''+c+'\',\''+d+'\')">Book</button></div></div>'}).join(''):'<div class="card">No trains on this route.</div>';
+}
+
+// ------------------------------------------------ booking
+function startBook(no,c,d){cur=trains.find(function(t){return t.no===no});curClass=c;curDate=d;show('book')}
+function on_book(){
+  $('bk_info').innerHTML='<b>'+esc(cur.name)+' ('+cur.no+')</b><br>'+cur.from+' &rarr; '+cur.to+' on '+curDate+', class '+curClass+' - Rs. '+fare(cur,curClass,curDate)+' per passenger';
+  $('bk_rows').innerHTML='';addPax();payMode();
+}
+function addPax(){
+  if($('bk_rows').children.length>=6)return msg('Maximum 6 passengers per booking.',false);
+  var i=$('bk_rows').children.length+1,d=document.createElement('div');d.className='row';
+  d.innerHTML='<div><label>Passenger '+i+' name</label><input class="pn"></div><div><label>Age</label><input class="pa" type="number" min="1" max="120"></div><div><label>Gender</label><select class="pg"><option>Male</option><option>Female</option><option>Other</option></select></div>';
+  $('bk_rows').appendChild(d);$('bk_total').textContent='Total fare: Rs. '+($('bk_rows').children.length*fare(cur,curClass,curDate));
+}
+function payMode(){$('card_box').hidden=$('bk_pm').value!=='Online'}
+function payBook(){
+  var names=[].slice.call(document.querySelectorAll('.pn')),ages=[].slice.call(document.querySelectorAll('.pa')),gens=[].slice.call(document.querySelectorAll('.pg')),pax=[];
+  for(var i=0;i<names.length;i++){if(!names[i].value.trim()||!(ages[i].value>0))return msg('Enter name and age for every passenger.',false);pax.push({n:names[i].value.trim(),a:+ages[i].value,g:gens[i].value})}
+  var pm=$('bk_pm').value;if(pm==='Online'&&!$('bk_card').value.trim())return msg('Enter card / UPI details.',false);
+  var a=avail(cur,curClass,curDate),status;
+  if(a>=pax.length)status='Confirmed';
+  else{var rac=tickets.filter(function(k){return k.train===cur.no&&k.cls===curClass&&k.date===curDate&&k.status==='RAC'}).reduce(function(s,k){return s+k.pax.length},0);status=(rac+pax.length<=RAC_LIMIT*4)?'RAC':'Waiting'}
+  var amt=pax.length*fare(cur,curClass,curDate),pnr=String(nextPnr++);
+  tickets.push({pnr:pnr,train:cur.no,tname:cur.name,from:cur.from,to:cur.to,date:curDate,cls:curClass,pax:pax,amount:amt,mode:pm,status:status,by:me.u,booked:fmt(new Date())});
+  show('ticket');
+  $('tk').innerHTML='<div class="pnr">PNR '+pnr+'</div><b>'+esc(cur.name)+' ('+cur.no+')</b><br>'+cur.from+' &rarr; '+cur.to+'<br>Journey: '+curDate+' &middot; Class '+curClass+'<br>Passengers: '+pax.map(function(p){return esc(p.n)+' ('+p.a+')'}).join(', ')+
+    '<br>Status: <b>'+status+'</b><br>Paid ('+pm+'): <b>Rs. '+amt+'</b>';
+}
+
+// ------------------------------------------------ PNR + history + cancel
+function statusCls(s){return s==='Confirmed'?'ok':(s==='Cancelled'||s==='Refunded'?'bad':'warn')}
+function checkPnr(){
+  var k=tickets.find(function(x){return x.pnr===$('pn_n').value.trim()});
+  $('pn_res').innerHTML=k?'<div class="ticket"><b>'+esc(k.tname)+'</b><br>'+k.from+' &rarr; '+k.to+', '+k.date+' ('+k.cls+')<br>Passengers: '+k.pax.length+'<br>Status: <b class="'+statusCls(k.status)+'">'+k.status+'</b></div>':'<p class="bad">PNR not found.</p>';
+}
+function on_mybookings(){
+  var r=tickets.filter(function(k){return k.by===me.u}).map(function(k){
+    return '<tr><td>'+k.pnr+'</td><td>'+esc(k.tname)+'</td><td>'+k.from+' &rarr; '+k.to+'</td><td>'+k.date+'</td><td>'+k.cls+'</td><td>'+k.pax.length+'</td><td>Rs. '+k.amount+'</td><td class="'+statusCls(k.status)+'">'+k.status+'</td></tr>'}).join('')||'<tr><td colspan="8">No bookings yet.</td></tr>';
+  $('mb').innerHTML='<table><tr><th>PNR</th><th>Train</th><th>Route</th><th>Date</th><th>Class</th><th>Pax</th><th>Fare</th><th>Status</th></tr>'+r+'</table>';
+}
+function refundPct(date){var d=days(fmt(new Date()),date);for(var i=0;i<REFUND_RULES.length;i++)if(d>=REFUND_RULES[i].min)return REFUND_RULES[i].pct;return 0}
+function findCancel(){
+  var k=tickets.find(function(x){return x.pnr===$('cn_n').value.trim()&&x.by===me.u});
+  if(!k)return $('cn_res').innerHTML='<p class="bad">No ticket with this PNR in your account.</p>';
+  if(k.status==='Cancelled'||k.status==='Refunded')return $('cn_res').innerHTML='<p class="bad">This ticket is already cancelled.</p>';
+  var p=refundPct(k.date);
+  $('cn_res').innerHTML='<div class="ticket"><b>'+esc(k.tname)+'</b> on '+k.date+'<br>Fare paid: Rs. '+k.amount+'<br>Refundable: '+p+'% = <b>Rs. '+Math.round(k.amount*p/100)+'</b></div><p><button class="red" onclick="doCancel(\''+k.pnr+'\')">Confirm Cancel Request</button></p>';
+}
+function doCancel(pnr){
+  var k=tickets.find(function(x){return x.pnr===pnr}),p=refundPct(k.date);
+  k.status='Cancelled';refunds.push({pnr:pnr,by:k.by,amount:Math.round(k.amount*p/100),pct:p,state:'Pending'});
+  $('cn_res').innerHTML='';$('cn_n').value='';msg('Ticket cancelled. Refund of Rs. '+refunds[refunds.length-1].amount+' will be released after admin approval.');
+}
+
+// ------------------------------------------------ admin
+function on_a_trains(){
+  $('at').innerHTML='<table><tr><th>No.</th><th>Train</th><th>Route</th>'+CLASSES.map(function(c){return '<th>'+c+' fare / seats</th>'}).join('')+'<th></th></tr>'+trains.map(function(t,i){
+    return '<tr><td>'+t.no+'</td><td>'+esc(t.name)+'</td><td>'+t.from+' &rarr; '+t.to+'</td>'+CLASSES.map(function(c){return '<td><input id="f'+i+c+'" type="number" value="'+t.fare[c]+'" style="width:70px"> / <input id="s'+i+c+'" type="number" value="'+t.seats[c]+'" style="width:60px"></td>'}).join('')+'<td><button class="s" onclick="saveTrain('+i+')">Save</button></td></tr>'}).join('')+'</table>';
+}
+function saveTrain(i){CLASSES.forEach(function(c){trains[i].fare[c]=+$('f'+i+c).value;trains[i].seats[c]=+$('s'+i+c).value});msg('Train '+trains[i].no+' updated.')}
+function on_a_pay(){
+  var tot=tickets.reduce(function(s,k){return s+k.amount},0);
+  $('ap_stats').innerHTML='<div class="stat"><b>'+tickets.length+'</b>Tickets booked</div><div class="stat"><b>Rs. '+tot+'</b>Total collected</div>';
+  $('ap').innerHTML='<table><tr><th>PNR</th><th>Passenger account</th><th>Train</th><th>Date</th><th>Mode</th><th>Amount</th><th>Status</th></tr>'+(tickets.map(function(k){
+    return '<tr><td>'+k.pnr+'</td><td>'+esc(k.by)+'</td><td>'+esc(k.tname)+'</td><td>'+k.date+'</td><td>'+k.mode+'</td><td>Rs. '+k.amount+'</td><td class="'+statusCls(k.status)+'">'+k.status+'</td></tr>'}).join('')||'<tr><td colspan="7">No payments yet.</td></tr>')+'</table>';
+}
+function on_a_refund(){
+  $('ar').innerHTML='<table><tr><th>PNR</th><th>Passenger</th><th>Refund %</th><th>Refund amount</th><th>State</th><th></th></tr>'+(refunds.map(function(r,i){
+    return '<tr><td>'+r.pnr+'</td><td>'+esc(r.by)+'</td><td>'+r.pct+'%</td><td>Rs. '+r.amount+'</td><td class="'+(r.state==='Pending'?'warn':'ok')+'">'+r.state+'</td><td><button class="s" '+(r.state==='Pending'?'':'disabled')+' onclick="payRefund('+i+')">Pass Refund</button></td></tr>'}).join('')||'<tr><td colspan="6">No refund requests.</td></tr>')+'</table>';
+}
+function payRefund(i){refunds[i].state='Refunded';var k=tickets.find(function(x){return x.pnr===refunds[i].pnr});if(k)k.status='Refunded';on_a_refund();msg('Refund of Rs. '+refunds[i].amount+' passed to the passenger.')}
+
+show('login');
+</script>
+</body>
+</html>

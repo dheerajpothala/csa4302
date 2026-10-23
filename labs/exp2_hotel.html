@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotel Sunrise - Room Booking</title>
+<style>
+:root{--c:#8a4b08}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#f6f3ee;color:#222}
+header{background:var(--c);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-size:1.25rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#fff;opacity:.9;padding:6px 10px;border-radius:6px;font-size:.9rem;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.2)}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+h1,h2{color:var(--c);margin-top:0}
+.card{background:#fff;border-radius:8px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+.narrow{max-width:440px;margin:24px auto}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:.9rem}
+input,select,textarea{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+textarea{min-height:110px}
+button{background:var(--c);color:#fff;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button.red{background:#b8423a}button.grey{background:#777}button.s{padding:4px 9px;font-size:.82rem}
+button:disabled{background:#bbb;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.row>*{flex:1;min-width:130px}.row button{flex:0 0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:left;font-size:.9rem}
+th{background:#f0e6d8}
+.tw{overflow-x:auto}
+.ok{color:#1d7a35;font-weight:600}.bad{color:#b8423a;font-weight:600}.muted{color:#666;font-size:.88rem}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:12px}.msg.s{background:#def3e2;color:#1d5a2a}.msg.e{background:#fbe0de;color:#8a2822}
+.big{font-size:2.2rem}
+</style>
+</head>
+<body>
+<header><div class="brand">&#127976; Hotel Sunrise</div><nav id="nav"></nav></header>
+<main>
+<div id="msg"></div>
+
+<!-- ============ PUBLIC PAGES ============ -->
+<section class="page" id="home">
+  <div class="card"><h1>Find &amp; Book Your Room</h1>
+    <p class="muted">Check room availability for your dates, then book instantly.</p>
+    <div class="row">
+      <div><label>Arrival date</label><input type="date" id="s_in"></div>
+      <div><label>Departure date</label><input type="date" id="s_out"></div>
+      <div><label>Guests</label><select id="s_g"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+      <button onclick="searchRooms()">Check Availability</button>
+    </div>
+  </div>
+  <div id="results" class="grid"></div>
+</section>
+
+<section class="page" id="rooms"><div class="card"><h1>Room Types</h1><div id="rooms_text"></div></div></section>
+<section class="page" id="about"><div class="card"><h1>About Us</h1><div id="about_text"></div></div></section>
+<section class="page" id="contactus"><div class="card"><h1>Contact Us</h1><div id="contactus_text"></div></div></section>
+<section class="page" id="qa"><div class="card"><h1>Customer Service Q&amp;A</h1><div id="qa_text"></div></div></section>
+<section class="page" id="travel"><div class="card"><h1>Local Travel &amp; Shipping Guide</h1><div id="travel_text"></div></div></section>
+<section class="page" id="privacy"><div class="card"><h1>Privacy Policy</h1><div id="privacy_text"></div></div></section>
+
+<section class="page" id="login"><div class="card narrow"><h1>Login</h1>
+  <label>Username</label><input id="l_u"><label>Password</label><input id="l_p" type="password">
+  <label>Login as</label><select id="l_r"><option value="user">Guest (User)</option><option value="admin">Administrator</option></select>
+  <p><button onclick="doLogin()">Login</button></p>
+  <p class="muted">Demo: any username and password works. New guest? <a href="#" onclick="show('register');return false">Register</a></p></div></section>
+
+<section class="page" id="register"><div class="card narrow"><h1>Register</h1>
+  <label>Full name</label><input id="r_n"><label>Email</label><input id="r_e" type="email"><label>Phone</label><input id="r_ph">
+  <label>Username</label><input id="r_u"><label>Password</label><input id="r_p" type="password">
+  <p><button onclick="doRegister()">Register</button></p></div></section>
+
+<!-- ============ USER PAGES ============ -->
+<section class="page" id="book"><div class="card narrow"><h1>Booking Form</h1>
+  <p id="b_sum"></p>
+  <label>Guest name</label><input id="b_n"><label>Phone</label><input id="b_ph">
+  <h2 style="margin-top:18px">Payment (demo)</h2>
+  <label>Card number</label><input id="b_c" placeholder="1234 5678 9012 3456" maxlength="19">
+  <div class="row"><div><label>Expiry</label><input placeholder="MM/YY"></div><div><label>CVV</label><input type="password" maxlength="3"></div></div>
+  <p><button onclick="confirmBooking()">Pay &amp; Confirm Booking</button> <button class="grey" onclick="show('home')">Cancel</button></p></div></section>
+
+<section class="page" id="mybookings"><h1>My Bookings</h1>
+  <p class="muted">Bookings can be changed or cancelled up to 3 days before the arrival date.</p><div class="tw" id="mb_table"></div></section>
+
+<section class="page" id="change"><div class="card narrow"><h1>Change Booking</h1><p id="c_sum"></p>
+  <label>New arrival date</label><input type="date" id="c_in"><label>New departure date</label><input type="date" id="c_out">
+  <p><button onclick="saveChange()">Save Changes</button> <button class="grey" onclick="show('mybookings')">Back</button></p></div></section>
+
+<section class="page" id="profile"><div class="card narrow"><h1>My Profile</h1>
+  <label>Full name</label><input id="p_n"><label>Email</label><input id="p_e"><label>Phone</label><input id="p_ph">
+  <p><button onclick="saveProfile()">Update Profile</button></p></div></section>
+
+<!-- ============ ADMIN PAGES ============ -->
+<section class="page" id="a_rooms"><h1>Manage Rooms (quantity &amp; price)</h1><div class="tw" id="ar_table"></div></section>
+<section class="page" id="a_bookings"><h1>All Bookings</h1><div class="tw" id="ab_table"></div></section>
+<section class="page" id="a_editbook"><div class="card narrow"><h1>Edit Booking</h1><p id="e_sum"></p>
+  <label>Guest name</label><input id="e_n"><label>Room type</label><select id="e_r"></select>
+  <label>Arrival</label><input type="date" id="e_in"><label>Departure</label><input type="date" id="e_out">
+  <p><button onclick="saveAdminEdit()">Save</button> <button class="grey" onclick="show('a_bookings')">Back</button></p></div></section>
+<section class="page" id="a_static"><div class="card"><h1>Edit Static Pages</h1>
+  <label>Page</label><select id="st_sel" onchange="loadStatic()"></select>
+  <label>Content (HTML allowed)</label><textarea id="st_txt"></textarea>
+  <p><button onclick="saveStatic()">Save Page</button></p></div></section>
+</main>
+
+<script>
+// ------------------------------------------------ helpers
+function $(i){return document.getElementById(i)}
+function pad(n){return (n<10?'0':'')+n}
+function fmt(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return fmt(d)}
+function days(a,b){var x=a.split('-'),y=b.split('-');return Math.round((Date.UTC(+y[0],+y[1]-1,+y[2])-Date.UTC(+x[0],+x[1]-1,+x[2]))/864e5)}
+function msg(t,ok){$('msg').innerHTML='<div class="msg '+(ok===false?'e':'s')+'">'+t+'</div>';window.scrollTo(0,0)}
+function show(id){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!==id});$('msg').innerHTML='';window.scrollTo(0,0);if(window['on_'+id])window['on_'+id]();drawNav()}
+
+// ------------------------------------------------ data (in memory)
+var ROOMS=[
+ {t:'Standard Room',price:2500,qty:10,icon:'&#128716;',info:'Cosy room with a double bed, TV and Wi-Fi.'},
+ {t:'Deluxe Room',price:4000,qty:6,icon:'&#128715;',info:'Larger room with city view, mini-bar and work desk.'},
+ {t:'Executive Suite',price:7500,qty:3,icon:'&#127976;',info:'Bedroom plus living area, bathtub and breakfast included.'},
+ {t:'Family Room',price:5500,qty:4,icon:'&#128106;',info:'Two double beds, sleeps four. Ideal for families.'}];
+var STATIC={
+ rooms:'<p>We offer four room types: Standard, Deluxe, Executive Suite and Family Room. All rooms have air conditioning, free Wi-Fi and 24-hour room service.</p>',
+ about:'<p>Hotel Sunrise is a 3-star hotel in the heart of the city, serving guests since 1998.</p>',
+ contactus:'<p>Phone: +91 98765 43210<br>Email: stay@hotelsunrise.example<br>Address: 12 Beach Road, Chennai</p>',
+ qa:'<p><b>Check-in time?</b> 12:00 noon. <b>Check-out time?</b> 11:00 am.<br><b>Can I cancel?</b> Yes, up to 3 days before arrival.<br><b>Is breakfast included?</b> Only in the Executive Suite.</p>',
+ travel:'<p>Airport: 20 km (taxi 40 min). Railway station: 5 km. Local sightseeing and shipping/courier assistance available at the front desk.</p>',
+ privacy:'<p>We store only the details needed for your booking and never share them with third parties.</p>'};
+var users=[{u:'guest',n:'Demo Guest',e:'guest@mail.com',ph:'9999999999'}];
+var bookings=[
+ {id:1001,room:1,in:addDays(2),out:addDays(4),guests:2,name:'Demo Guest',by:'guest',total:8000,status:'Confirmed'},
+ {id:1002,room:0,in:addDays(10),out:addDays(12),guests:2,name:'Demo Guest',by:'guest',total:5000,status:'Confirmed'}];
+var nextId=1003, me=null, pending=null, editing=null;
+
+// ------------------------------------------------ navigation
+var PUB=[['home','Home'],['rooms','Rooms'],['about','About'],['qa','Q&A'],['travel','Travel Guide'],['contactus','Contact'],['privacy','Privacy']];
+function drawNav(){
+  var l=PUB.slice();
+  if(!me) l=l.concat([['login','Login'],['register','Register']]);
+  else if(me.role==='user') l=l.concat([['mybookings','My Bookings'],['profile','Profile'],['out','Logout']]);
+  else l=[['a_rooms','Rooms &amp; Prices'],['a_bookings','Bookings'],['a_static','Static Pages']].concat(PUB.slice(0,1)).concat([['out','Logout']]);
+  $('nav').innerHTML=l.map(function(x){return '<a onclick="'+(x[0]==='out'?'logout()':"show('"+x[0]+"')")+'">'+x[1]+'</a>'}).join('');
+}
+function logout(){me=null;show('login');msg('Logged out.')}
+
+// ------------------------------------------------ auth
+function doLogin(){
+  if(!$('l_u').value.trim()||!$('l_p').value)return msg('Enter username and password.',false);
+  me={name:$('l_u').value.trim(),role:$('l_r').value,u:$('l_u').value.trim()};
+  var f=users.find(function(x){return x.u===me.u});if(!f){f={u:me.u,n:me.u,e:'',ph:''};users.push(f)}
+  show(me.role==='admin'?'a_rooms':'home');msg('Welcome, '+me.name+'!');
+}
+function doRegister(){
+  if(!$('r_n').value.trim()||!$('r_u').value.trim()||!$('r_p').value)return msg('Name, username and password are required.',false);
+  users.push({u:$('r_u').value.trim(),n:$('r_n').value.trim(),e:$('r_e').value,ph:$('r_ph').value});
+  show('login');msg('Registration successful. Please log in.');
+}
+function on_profile(){var f=users.find(function(x){return x.u===me.u});$('p_n').value=f.n;$('p_e').value=f.e;$('p_ph').value=f.ph}
+function saveProfile(){var f=users.find(function(x){return x.u===me.u});f.n=$('p_n').value;f.e=$('p_e').value;f.ph=$('p_ph').value;me.name=f.n;msg('Profile updated.')}
+
+// ------------------------------------------------ static pages
+function on_rooms(){$('rooms_text').innerHTML=STATIC.rooms+ROOMS.map(function(r){return '<p>'+r.icon+' <b>'+r.t+'</b> - Rs. '+r.price+'/night<br>'+r.info+'</p>'}).join('')}
+['about','contactus','qa','travel','privacy'].forEach(function(k){window['on_'+k]=function(){$(k+'_text').innerHTML=STATIC[k]}});
+
+// ------------------------------------------------ availability + booking
+function booked(ri,a,b){return bookings.filter(function(x){return x.room===ri&&x.status!=='Cancelled'&&x.in<b&&x.out>a}).length}
+function on_home(){if(!$('s_in').value){$('s_in').value=addDays(5);$('s_out').value=addDays(7);searchRooms()}}
+function searchRooms(){
+  var a=$('s_in').value,b=$('s_out').value;
+  if(!a||!b||b<=a)return msg('Choose a valid arrival and departure date.',false);
+  var n=days(a,b);
+  $('results').innerHTML=ROOMS.map(function(r,i){
+    var left=r.qty-booked(i,a,b);
+    return '<div class="card"><div class="big">'+r.icon+'</div><h2>'+r.t+'</h2><p class="muted">'+r.info+'</p><p><b>Rs. '+r.price+'</b> / night<br>'+n+' night(s): Rs. '+(r.price*n)+'</p>'+
+      '<p>'+(left>0?'<span class="ok">'+left+' room(s) available</span>':'<span class="bad">Sold out</span>')+'</p>'+
+      '<button '+(left>0?'':'disabled')+' onclick="startBooking('+i+')">Book Now</button></div>'}).join('');
+}
+function startBooking(i){
+  if(!me)return show('login'),msg('Please log in to book a room.',false);
+  if(me.role==='admin')return msg('Log in as a guest to book.',false);
+  var a=$('s_in').value,b=$('s_out').value,n=days(a,b);
+  pending={room:i,in:a,out:b,guests:+$('s_g').value,total:ROOMS[i].price*n};
+  show('book');$('b_sum').innerHTML='<b>'+ROOMS[i].t+'</b><br>'+a+' to '+b+' ('+n+' nights), '+pending.guests+' guest(s)<br><b>Total: Rs. '+pending.total+'</b>';
+  $('b_n').value=me.name;
+}
+function confirmBooking(){
+  if(!$('b_n').value.trim()||$('b_c').value.replace(/\D/g,'').length<12)return msg('Enter guest name and a valid card number.',false);
+  bookings.push({id:nextId++,room:pending.room,in:pending.in,out:pending.out,guests:pending.guests,name:$('b_n').value.trim(),by:me.u,total:pending.total,status:'Confirmed'});
+  show('mybookings');msg('Payment successful. Booking #'+(nextId-1)+' confirmed. A confirmation email has been sent.');
+}
+
+// ------------------------------------------------ my bookings (3 day rule)
+function canEdit(b){return b.status==='Confirmed'&&days(fmt(new Date()),b.in)>=3}
+function on_mybookings(){
+  var rows=bookings.filter(function(b){return b.by===me.u}).map(function(b){
+    var ok=canEdit(b);
+    return '<tr><td>#'+b.id+'</td><td>'+ROOMS[b.room].t+'</td><td>'+b.in+'</td><td>'+b.out+'</td><td>Rs. '+b.total+'</td><td class="'+(b.status==='Confirmed'?'ok':'bad')+'">'+b.status+'</td>'+
+    '<td><button class="s" '+(ok?'':'disabled')+' onclick="startChange('+b.id+')">Change</button> <button class="s red" '+(ok?'':'disabled')+' onclick="cancelBooking('+b.id+')">Cancel</button></td></tr>'}).join('')||'<tr><td colspan="7">No bookings yet.</td></tr>';
+  $('mb_table').innerHTML='<table><tr><th>ID</th><th>Room</th><th>Arrival</th><th>Departure</th><th>Total</th><th>Status</th><th>Action</th></tr>'+rows+'</table>';
+}
+function find(id){return bookings.find(function(b){return b.id===id})}
+function startChange(id){editing=find(id);show('change');$('c_sum').innerHTML='Booking #'+id+' - '+ROOMS[editing.room].t;$('c_in').value=editing.in;$('c_out').value=editing.out}
+function saveChange(){
+  var a=$('c_in').value,b=$('c_out').value;
+  if(!a||b<=a)return msg('Invalid dates.',false);
+  if(days(fmt(new Date()),a)<3)return msg('New arrival date must be at least 3 days from today.',false);
+  if(booked(editing.room,a,b)-(editing.in<b&&editing.out>a?1:0)>=ROOMS[editing.room].qty)return msg('No rooms available on those dates.',false);
+  editing.in=a;editing.out=b;editing.total=ROOMS[editing.room].price*days(a,b);show('mybookings');msg('Booking updated.');
+}
+function cancelBooking(id){if(confirm('Cancel this booking?')){find(id).status='Cancelled';on_mybookings();msg('Booking cancelled.')}}
+
+// ------------------------------------------------ admin
+function on_a_rooms(){
+  $('ar_table').innerHTML='<table><tr><th>Room type</th><th>Price / night (Rs.)</th><th>Quantity</th><th></th></tr>'+ROOMS.map(function(r,i){
+    return '<tr><td>'+r.t+'</td><td><input id="ap'+i+'" type="number" value="'+r.price+'"></td><td><input id="aq'+i+'" type="number" value="'+r.qty+'"></td><td><button class="s" onclick="saveRoom('+i+')">Save</button></td></tr>'}).join('')+'</table>';
+}
+function saveRoom(i){var p=+$('ap'+i).value,q=+$('aq'+i).value;if(!(p>0)||!(q>=0))return msg('Enter valid numbers.',false);ROOMS[i].price=p;ROOMS[i].qty=q;msg(ROOMS[i].t+' updated.')}
+function on_a_bookings(){
+  $('ab_table').innerHTML='<table><tr><th>ID</th><th>Guest</th><th>Room</th><th>Arrival</th><th>Departure</th><th>Total</th><th>Status</th><th>Action</th></tr>'+bookings.map(function(b){
+    return '<tr><td>#'+b.id+'</td><td>'+b.name+'</td><td>'+ROOMS[b.room].t+'</td><td>'+b.in+'</td><td>'+b.out+'</td><td>Rs. '+b.total+'</td><td class="'+(b.status==='Confirmed'?'ok':'bad')+'">'+b.status+'</td>'+
+    '<td><button class="s" onclick="adminEdit('+b.id+')">Edit</button> <button class="s red" '+(b.status==='Cancelled'?'disabled':'')+' onclick="adminCancel('+b.id+')">Cancel</button></td></tr>'}).join('')+'</table>';
+}
+function adminCancel(id){if(confirm('Cancel booking #'+id+'?')){find(id).status='Cancelled';on_a_bookings();msg('Booking cancelled.')}}
+function adminEdit(id){editing=find(id);show('a_editbook');$('e_sum').innerHTML='Booking #'+id;$('e_n').value=editing.name;
+  $('e_r').innerHTML=ROOMS.map(function(r,i){return '<option value="'+i+'"'+(i===editing.room?' selected':'')+'>'+r.t+'</option>'}).join('');$('e_in').value=editing.in;$('e_out').value=editing.out}
+function saveAdminEdit(){
+  if($('e_out').value<=$('e_in').value)return msg('Invalid dates.',false);
+  editing.name=$('e_n').value;editing.room=+$('e_r').value;editing.in=$('e_in').value;editing.out=$('e_out').value;
+  editing.total=ROOMS[editing.room].price*days(editing.in,editing.out);show('a_bookings');msg('Booking updated.');
+}
+var STN={rooms:'Room information',about:'About us',contactus:'Contact us',qa:'Customer service Q&A',travel:'Local travel & shipping guide',privacy:'Privacy policy'};
+function on_a_static(){$('st_sel').innerHTML=Object.keys(STN).map(function(k){return '<option value="'+k+'">'+STN[k]+'</option>'}).join('');loadStatic()}
+function loadStatic(){$('st_txt').value=STATIC[$('st_sel').value]}
+function saveStatic(){STATIC[$('st_sel').value]=$('st_txt').value;msg('Page saved. Open it from the Home menu to view.')}
+
+// ------------------------------------------------ start
+show('home');
+</script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyWay - Flight Reservation</title>
+<style>
+:root{--c:#0b6e99}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#eef5f9;color:#222}
+header{background:var(--c);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-size:1.25rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#fff;opacity:.92;padding:6px 10px;border-radius:6px;font-size:.9rem;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.2)}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+h1,h2{color:var(--c);margin-top:0}
+.card{background:#fff;border-radius:8px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+.narrow{max-width:440px;margin:24px auto}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:.9rem}
+input,select,textarea{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+textarea{min-height:90px}
+button{background:var(--c);color:#fff;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button.red{background:#b8423a}button.grey{background:#777}button.s{padding:4px 9px;font-size:.82rem}
+button:disabled{background:#bbb;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.row>*{flex:1;min-width:120px}.row button{flex:0 0 auto}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:left;font-size:.9rem}
+th{background:#d3e8f2}
+.tw{overflow-x:auto}
+.ok{color:#1d7a35;font-weight:600}.bad{color:#b8423a;font-weight:600}.warn{color:#b9770e;font-weight:600}.muted{color:#666;font-size:.88rem}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:12px}.msg.s{background:#def3e2;color:#1d5a2a}.msg.e{background:#fbe0de;color:#8a2822}
+.seats{display:grid;grid-template-columns:repeat(7,42px);gap:7px;justify-content:center;margin:14px 0}
+.seat{height:38px;border-radius:6px;border:1px solid #888;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:.78rem;cursor:pointer;user-select:none}
+.seat.taken{background:#999;color:#fff;cursor:not-allowed}.seat.sel{background:var(--c);color:#fff}.seat.gap{visibility:hidden}
+.ticket{border:2px dashed var(--c);padding:16px;border-radius:8px;background:#f7fbff}
+.ref{font-size:1.6rem;letter-spacing:2px;color:var(--c);font-weight:700}
+.stat{display:inline-block;background:#fff;border-left:5px solid var(--c);padding:12px 18px;margin:0 10px 10px 0;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.stat b{display:block;font-size:1.5rem}
+.fl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+@media print{header,#msg,.noprint{display:none!important}body{background:#fff}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<header><div class="brand">&#9992;&#65039; SkyWay Airlines</div><nav id="nav"></nav></header>
+<main>
+<div id="msg"></div>
+
+<section class="page" id="login"><div class="card narrow"><h1>Login</h1>
+  <label>Email / username</label><input id="l_u"><label>Password</label><input id="l_p" type="password">
+  <label>Login as</label><select id="l_r"><option value="user">Customer</option><option value="admin">Administrator</option></select>
+  <p><button onclick="doLogin()">Login</button></p>
+  <p class="muted">Demo: any credentials work. <a href="#" onclick="show('forgot');return false">Forgot password?</a> &middot; <a href="#" onclick="show('register');return false">Register</a></p></div></section>
+<section class="page" id="register"><div class="card narrow"><h1>Register</h1>
+  <label>Full name</label><input id="r_n"><label>Email</label><input id="r_e" type="email"><label>Password</label><input id="r_p" type="password">
+  <p><button onclick="doRegister()">Register</button></p></div></section>
+<section class="page" id="forgot"><div class="card narrow"><h1>Forgot Password</h1>
+  <label>Registered email</label><input id="f_e" type="email"><p><button onclick="doForgot()">Send reset link</button></p></div></section>
+
+<!-- ========== CUSTOMER ========== -->
+<section class="page" id="search">
+  <div class="card"><h1>Search Flight</h1><div class="row">
+    <div><label>From</label><select id="s_f"></select></div><div><label>To</label><select id="s_t"></select></div>
+    <div><label>Date</label><input type="date" id="s_d"></div><div><label>Class</label><select id="s_c"><option>Economy</option><option>Business</option></select></div>
+    <button onclick="searchFlights()">Search</button></div></div>
+  <div id="results"></div></section>
+
+<section class="page" id="booking"><div class="card"><h1>Book Ticket</h1><p id="bk_info"></p>
+  <p class="muted">Choose seats (green = free, grey = taken, blue = yours).</p><div class="seats" id="seatgrid"></div>
+  <p>Selected: <b id="bk_sel">none</b></p>
+  <h2>Passenger Details</h2><div id="bk_pax"></div>
+  <div class="row"><div><label>Contact email</label><input id="bk_e" type="email"></div><div><label>Contact phone</label><input id="bk_ph"></div></div>
+  <p><b id="bk_tot"></b></p><p><button onclick="toPayment()">Proceed to Payment</button> <button class="grey" onclick="show('search')">Back</button></p></div></section>
+
+<section class="page" id="payment"><div class="card narrow"><h1>Ticket Payment</h1><p id="pay_sum"></p>
+  <label>Payment method</label><select id="pay_m"><option>Credit / Debit card</option><option>UPI</option><option>Net banking</option></select>
+  <label>Card number / UPI id</label><input id="pay_c"><div class="row"><div><label>Expiry</label><input placeholder="MM/YY"></div><div><label>CVV</label><input type="password" maxlength="3"></div></div>
+  <p><button onclick="pay()">Pay Now</button> <button class="grey" onclick="show('booking')">Back</button></p></div></section>
+
+<section class="page" id="eticket"><div class="card narrow"><h1>Booking Successful</h1><div class="ticket" id="et"></div>
+  <p class="muted">E-ticket has been emailed to you.</p><p><button onclick="show('myticket')">My Ticket</button></p></div></section>
+
+<section class="page" id="myticket"><h1>My Ticket</h1><div class="tw" id="mt"></div></section>
+
+<section class="page" id="printticket"><div class="card"><div class="ticket" id="pt"></div><p class="noprint"><button onclick="window.print()">Print</button> <button class="grey" onclick="show('myticket')">Back</button></p></div></section>
+
+<section class="page" id="cancel"><div class="card narrow"><h1>Cancel Ticket</h1>
+  <label>Booking reference</label><input id="cn_r" maxlength="8"><p><button onclick="findCancel()">Find Booking</button></p><div id="cn_res"></div></div></section>
+
+<section class="page" id="status"><div class="card narrow"><h1>View Booking Status</h1>
+  <label>Booking reference</label><input id="st_r" maxlength="8"><p><button onclick="checkStatus()">Check Status</button></p><div id="st_res"></div></div></section>
+
+<section class="page" id="feedback"><div class="card narrow"><h1>Customer Feedback</h1>
+  <label>Rating</label><select id="fb_r"><option value="5">5 - Excellent</option><option value="4">4 - Good</option><option value="3">3 - Average</option><option value="2">2 - Poor</option><option value="1">1 - Very poor</option></select>
+  <label>Comments</label><textarea id="fb_t"></textarea><p><button onclick="sendFeedback()">Submit Feedback</button></p></div></section>
+
+<!-- ========== ADMIN ========== -->
+<section class="page" id="a_report"><h1>Admin Report</h1><div id="rp"></div></section>
+<section class="page" id="a_flights"><h1>Manage Flights</h1><div class="card"><div class="row">
+  <div><label>Flight no.</label><input id="af_n"></div><div><label>From</label><input id="af_f"></div><div><label>To</label><input id="af_t"></div></div>
+  <div class="row"><div><label>Departure</label><input id="af_d" type="time" value="09:00"></div><div><label>Arrival</label><input id="af_a" type="time" value="11:00"></div>
+  <div><label>Economy fare</label><input id="af_e" type="number" value="4500"></div><div><label>Business fare</label><input id="af_b" type="number" value="9500"></div><button onclick="addFlight()">Add Flight</button></div></div>
+  <div class="tw" id="af_list"></div></section>
+</main>
+
+<script>
+function $(i){return document.getElementById(i)}
+function pad(n){return (n<10?'0':'')+n}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function msg(t,ok){$('msg').innerHTML='<div class="msg '+(ok===false?'e':'s')+'">'+t+'</div>';window.scrollTo(0,0)}
+function show(id){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!==id});$('msg').innerHTML='';window.scrollTo(0,0);if(window['on_'+id])window['on_'+id]();drawNav()}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// ------------------------------------------------ data
+var flights=[
+ {no:'SW101',from:'Chennai',to:'Delhi',dep:'06:30',arr:'09:15',eco:5200,bus:11800,taken:[3,4,9,15]},
+ {no:'SW205',from:'Chennai',to:'Mumbai',dep:'10:00',arr:'12:10',eco:4300,bus:9900,taken:[1,2,8]},
+ {no:'SW318',from:'Delhi',to:'Chennai',dep:'18:45',arr:'21:30',eco:5400,bus:12000,taken:[5,6,7]},
+ {no:'SW422',from:'Mumbai',to:'Chennai',dep:'14:20',arr:'16:30',eco:4100,bus:9500,taken:[]},
+ {no:'SW509',from:'Chennai',to:'Delhi',dep:'20:00',arr:'22:45',eco:4900,bus:11000,taken:[10,11]}];
+var bookings=[], feedback=[], nextRef=1, me=null, cur=null, sel=[], draft=null;
+var ROWS=6, COLS=6;
+
+function drawNav(){
+  var l;
+  if(!me)l=[['login','Login'],['register','Register'],['forgot','Forgot Password']];
+  else if(me.role==='user')l=[['search','Search Flight'],['myticket','My Ticket'],['status','Booking Status'],['cancel','Cancel Ticket'],['feedback','Feedback'],['out','Logout']];
+  else l=[['a_report','Report'],['a_flights','Flights'],['status','Booking Status'],['out','Logout']];
+  $('nav').innerHTML=l.map(function(x){return '<a onclick="'+(x[0]==='out'?'logout()':"show('"+x[0]+"')")+'">'+x[1]+'</a>'}).join('');
+}
+function logout(){me=null;show('login');msg('Logged out.')}
+function doLogin(){
+  if(!$('l_u').value.trim()||!$('l_p').value)return msg('Enter your login details.',false);
+  me={u:$('l_u').value.trim(),role:$('l_r').value};show(me.role==='admin'?'a_report':'search');msg('Welcome, '+esc(me.u)+'!');
+}
+function doRegister(){
+  if(!$('r_n').value.trim()||!$('r_e').value.includes('@')||!$('r_p').value)return msg('Fill in all fields with a valid email.',false);
+  show('login');msg('Registration successful. Please log in.');
+}
+function doForgot(){if(!$('f_e').value.includes('@'))return msg('Enter a valid email.',false);msg('A password reset link has been sent to '+esc($('f_e').value)+'.')}
+
+// ------------------------------------------------ search
+function on_search(){
+  if(!$('s_f').options.length){
+    var p=[];flights.forEach(function(f){[f.from,f.to].forEach(function(x){if(p.indexOf(x)<0)p.push(x)})});p.sort();
+    var o=p.map(function(x){return '<option>'+x+'</option>'}).join('');$('s_f').innerHTML=o;$('s_t').innerHTML=o;$('s_t').selectedIndex=Math.min(1,p.length-1);$('s_d').value=addDays(7);
+  }
+}
+function fareOf(f,c){return c==='Business'?f.bus:f.eco}
+function searchFlights(){
+  var f=$('s_f').value,t=$('s_t').value,c=$('s_c').value;
+  if(!$('s_d').value)return msg('Choose a date.',false);
+  var r=flights.filter(function(x){return x.from===f&&x.to===t});
+  $('results').innerHTML=r.length?r.map(function(x){
+    return '<div class="card fl"><div><h2>'+x.no+'</h2><span class="muted">'+x.from+' '+x.dep+' &rarr; '+x.to+' '+x.arr+'</span></div>'+
+    '<div><b>Rs. '+fareOf(x,c)+'</b> ('+c+')<br><span class="ok">'+(ROWS*COLS-x.taken.length)+' seats left</span></div><button onclick="startBooking(\''+x.no+'\')">Book Ticket</button></div>'}).join(''):'<div class="card">No flights found for this route.</div>';
+}
+
+// ------------------------------------------------ book ticket page
+function startBooking(no){cur=flights.find(function(f){return f.no===no});sel=[];show('booking')}
+function on_booking(){
+  $('bk_info').innerHTML='<b>'+cur.no+'</b> '+cur.from+' &rarr; '+cur.to+', '+$('s_d').value+', '+cur.dep+' - '+$('s_c').value+' class, Rs. '+fareOf(cur,$('s_c').value)+' per seat';
+  drawSeats();
+}
+function drawSeats(){
+  var h='',L=['A','B','C','D','E','F'];
+  for(var r=1;r<=ROWS;r++)for(var c=0;c<COLS;c++){
+    var n=(r-1)*COLS+c+1,id=r+L[c],t=cur.taken.indexOf(n)>=0,s=sel.indexOf(id)>=0;
+    h+='<div class="seat'+(t?' taken':'')+(s?' sel':'')+'" '+(t?'':'onclick="pick(\''+id+'\')"')+'>'+id+'</div>';
+    if(c===2)h+='<div class="seat gap"></div>';
+  }
+  $('seatgrid').innerHTML=h;$('bk_sel').textContent=sel.length?sel.join(', '):'none';
+  $('bk_tot').textContent='Total: Rs. '+(sel.length*fareOf(cur,$('s_c').value));
+  var box=$('bk_pax'),old=box.children.length;
+  while(box.children.length<sel.length){var i=box.children.length+1,d=document.createElement('div');d.className='row';d.innerHTML='<div><label>Passenger '+i+' name</label><input class="pn"></div><div><label>Age</label><input class="pa" type="number" min="1"></div><div><label>Gender</label><select class="pg"><option>Male</option><option>Female</option><option>Other</option></select></div>';box.appendChild(d)}
+  while(box.children.length>sel.length)box.removeChild(box.lastChild);
+}
+function pick(id){var k=sel.indexOf(id);if(k>=0)sel.splice(k,1);else if(sel.length<6)sel.push(id);else msg('Maximum 6 seats per booking.',false);drawSeats()}
+function toPayment(){
+  if(!sel.length)return msg('Select at least one seat.',false);
+  var n=[].slice.call(document.querySelectorAll('.pn')),a=[].slice.call(document.querySelectorAll('.pa')),g=[].slice.call(document.querySelectorAll('.pg')),pax=[];
+  for(var i=0;i<n.length;i++){if(!n[i].value.trim()||!(a[i].value>0))return msg('Enter name and age for every passenger.',false);pax.push({n:n[i].value.trim(),a:+a[i].value,g:g[i].value,seat:sel[i]})}
+  if(!$('bk_e').value.includes('@'))return msg('Enter a valid contact email.',false);
+  draft={flight:cur.no,date:$('s_d').value,cls:$('s_c').value,pax:pax,total:sel.length*fareOf(cur,$('s_c').value),email:$('bk_e').value};
+  show('payment');$('pay_sum').innerHTML='<b>'+cur.no+'</b> '+cur.from+' &rarr; '+cur.to+' on '+draft.date+'<br>Seats: '+sel.join(', ')+'<br><b>Amount: Rs. '+draft.total+'</b>';
+}
+
+// ------------------------------------------------ payment
+function pay(){
+  if($('pay_c').value.trim().length<5)return msg('Enter card number or UPI id.',false);
+  var ref='SW'+String(100000+nextRef++);
+  var b={ref:ref,flight:draft.flight,date:draft.date,cls:draft.cls,pax:draft.pax,total:draft.total,email:draft.email,by:me.u,status:'Confirmed'};
+  cur.taken=cur.taken.concat(sel.map(function(s){return (parseInt(s)-1)*COLS+'ABCDEF'.indexOf(s.slice(-1))+1}));
+  bookings.push(b);show('eticket');$('et').innerHTML=ticketHtml(b);
+}
+function fl(no){return flights.find(function(f){return f.no===no})||{no:no,from:'?',to:'?',dep:'',arr:''}}
+function ticketHtml(b){var f=fl(b.flight);
+  return '<div class="ref">'+b.ref+'</div><b>'+f.no+'</b> &middot; '+f.from+' &rarr; '+f.to+'<br>Date: '+b.date+' &middot; Dep '+f.dep+' &middot; Arr '+f.arr+' &middot; '+b.cls+
+    '<br>Passengers: '+b.pax.map(function(p){return esc(p.n)+' (seat '+p.seat+')'}).join(', ')+'<br>Paid: <b>Rs. '+b.total+'</b><br>Status: <b>'+b.status+'</b>'}
+
+// ------------------------------------------------ my ticket / print / status / cancel
+function on_myticket(){
+  var r=bookings.filter(function(b){return b.by===me.u}).map(function(b){var f=fl(b.flight);
+    return '<tr><td>'+b.ref+'</td><td>'+f.no+'</td><td>'+f.from+' &rarr; '+f.to+'</td><td>'+b.date+'</td><td>'+b.pax.length+'</td><td>Rs. '+b.total+'</td><td class="'+(b.status==='Confirmed'?'ok':'bad')+'">'+b.status+'</td>'+
+    '<td><button class="s" onclick="printTicket(\''+b.ref+'\')">View / Print</button></td></tr>'}).join('')||'<tr><td colspan="8">No tickets yet.</td></tr>';
+  $('mt').innerHTML='<table><tr><th>Ref</th><th>Flight</th><th>Route</th><th>Date</th><th>Pax</th><th>Paid</th><th>Status</th><th></th></tr>'+r+'</table>';
+}
+function printTicket(ref){show('printticket');$('pt').innerHTML='<h2>E-Ticket</h2>'+ticketHtml(bookings.find(function(b){return b.ref===ref}))}
+function checkStatus(){
+  var b=bookings.find(function(x){return x.ref===$('st_r').value.trim().toUpperCase()});
+  $('st_res').innerHTML=b?'<div class="ticket">'+ticketHtml(b)+'</div>':'<p class="bad">Booking not found.</p>';
+}
+function findCancel(){
+  var b=bookings.find(function(x){return x.ref===$('cn_r').value.trim().toUpperCase()&&x.by===me.u});
+  if(!b)return $('cn_res').innerHTML='<p class="bad">No booking with this reference in your account.</p>';
+  if(b.status==='Cancelled')return $('cn_res').innerHTML='<p class="bad">Already cancelled.</p>';
+  $('cn_res').innerHTML='<div class="ticket">'+ticketHtml(b)+'<br>Refund (90%): <b>Rs. '+Math.round(b.total*.9)+'</b></div><p><button class="red" onclick="doCancel(\''+b.ref+'\')">Confirm Cancellation</button></p>';
+}
+function doCancel(ref){
+  var b=bookings.find(function(x){return x.ref===ref}),f=fl(b.flight);b.status='Cancelled';
+  var seats=b.pax.map(function(p){return (parseInt(p.seat)-1)*COLS+'ABCDEF'.indexOf(p.seat.slice(-1))+1});
+  f.taken=f.taken.filter(function(n){return seats.indexOf(n)<0});
+  $('cn_res').innerHTML='';$('cn_r').value='';msg('Ticket cancelled. Refund of Rs. '+Math.round(b.total*.9)+' will be credited in 5-7 days.');
+}
+function sendFeedback(){if(!$('fb_t').value.trim())return msg('Please write your feedback.',false);feedback.push({u:me.u,r:+$('fb_r').value,t:$('fb_t').value.trim()});$('fb_t').value='';msg('Thank you for your feedback!')}
+
+// ------------------------------------------------ admin
+function on_a_report(){
+  var ok=bookings.filter(function(b){return b.status==='Confirmed'}),rev=ok.reduce(function(s,b){return s+b.total},0);
+  var avg=feedback.length?(feedback.reduce(function(s,f){return s+f.r},0)/feedback.length).toFixed(1):'-';
+  var per=flights.map(function(f){var x=ok.filter(function(b){return b.flight===f.no});return '<tr><td>'+f.no+'</td><td>'+f.from+' &rarr; '+f.to+'</td><td>'+x.length+'</td><td>'+x.reduce(function(s,b){return s+b.pax.length},0)+'</td><td>Rs. '+x.reduce(function(s,b){return s+b.total},0)+'</td></tr>'}).join('');
+  $('rp').innerHTML='<div class="stat"><b>'+ok.length+'</b>Confirmed bookings</div><div class="stat"><b>'+(bookings.length-ok.length)+'</b>Cancelled</div><div class="stat"><b>Rs. '+rev+'</b>Revenue</div><div class="stat"><b>'+avg+'</b>Avg. rating</div>'+
+    '<div class="tw"><table><tr><th>Flight</th><th>Route</th><th>Bookings</th><th>Passengers</th><th>Revenue</th></tr>'+per+'</table></div>'+
+    '<h2 style="margin-top:20px">Customer Feedback</h2><div class="tw"><table><tr><th>User</th><th>Rating</th><th>Comment</th></tr>'+(feedback.map(function(f){return '<tr><td>'+esc(f.u)+'</td><td>'+f.r+'/5</td><td>'+esc(f.t)+'</td></tr>'}).join('')||'<tr><td colspan="3">No feedback yet.</td></tr>')+'</table></div>'+
+    '<p class="noprint"><button onclick="window.print()">Print Report</button></p>';
+}
+function on_a_flights(){
+  $('af_list').innerHTML='<table><tr><th>Flight</th><th>Route</th><th>Dep</th><th>Arr</th><th>Economy</th><th>Business</th><th>Seats left</th><th></th></tr>'+flights.map(function(f,i){
+    return '<tr><td>'+f.no+'</td><td>'+f.from+' &rarr; '+f.to+'</td><td>'+f.dep+'</td><td>'+f.arr+'</td><td>Rs. '+f.eco+'</td><td>Rs. '+f.bus+'</td><td>'+(ROWS*COLS-f.taken.length)+'</td><td><button class="s red" onclick="delFlight('+i+')">Delete</button></td></tr>'}).join('')+'</table>';
+}
+function addFlight(){
+  var n=$('af_n').value.trim().toUpperCase(),f=$('af_f').value.trim(),t=$('af_t').value.trim();
+  if(!n||!f||!t||!($('af_e').value>0)||!($('af_b').value>0))return msg('Fill in flight number, route and fares.',false);
+  if(flights.some(function(x){return x.no===n}))return msg('Flight number already exists.',false);
+  flights.push({no:n,from:f,to:t,dep:$('af_d').value,arr:$('af_a').value,eco:+$('af_e').value,bus:+$('af_b').value,taken:[]});
+  ['af_n','af_f','af_t'].forEach(function(i){$(i).value=''});on_a_flights();msg('Flight added.');
+}
+function delFlight(i){if(confirm('Delete this flight?')){flights.splice(i,1);on_a_flights()}}
+
+show('login');
+</script>
+</body>
+</html>

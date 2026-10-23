@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sweet Bites - Online Cake Shop</title>
+<style>
+:root{--c:#c2185b}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#fdf4f7;color:#222}
+header{background:var(--c);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-size:1.25rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#fff;opacity:.92;padding:6px 10px;border-radius:6px;font-size:.9rem;cursor:pointer}
+nav a:hover{background:rgba(255,255,255,.2)}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+h1,h2{color:var(--c);margin-top:0}
+.card{background:#fff;border-radius:8px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+.narrow{max-width:440px;margin:24px auto}
+label{display:block;margin:10px 0 4px;font-weight:600;font-size:.9rem}
+input,select,textarea{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+textarea{min-height:80px}
+button{background:var(--c);color:#fff;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button.red{background:#555}button.grey{background:#888}button.s{padding:4px 9px;font-size:.82rem}
+button:disabled{background:#bbb;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.row>*{flex:1;min-width:120px}.row button{flex:0 0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.cake{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);overflow:hidden}
+.cake .img{height:130px;display:flex;align-items:center;justify-content:center;font-size:4rem;background:#fde7ef}
+.cake .img img{width:100%;height:100%;object-fit:cover}
+.cake .b{padding:12px}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:left;font-size:.9rem}
+th{background:#f9d9e5}
+.tw{overflow-x:auto}
+.ok{color:#1d7a35;font-weight:600}.bad{color:#b8423a;font-weight:600}.warn{color:#b9770e;font-weight:600}.muted{color:#666;font-size:.88rem}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:12px}.msg.s{background:#def3e2;color:#1d5a2a}.msg.e{background:#fbe0de;color:#8a2822}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.steps span{padding:4px 10px;border-radius:12px;background:#eee;font-size:.82rem}.steps span.on{background:var(--c);color:#fff}
+.detail{display:flex;flex-wrap:wrap;gap:18px}.detail .img{width:240px;height:200px;background:#fde7ef;display:flex;align-items:center;justify-content:center;font-size:6rem;border-radius:8px;overflow:hidden}.detail .img img{width:100%;height:100%;object-fit:cover}
+</style>
+</head>
+<body>
+<header><div class="brand">&#127874; Sweet Bites</div><nav id="nav"></nav></header>
+<main>
+<div id="msg"></div>
+
+<section class="page" id="login"><div class="card narrow"><h1>Login</h1>
+  <label>Username</label><input id="l_u"><label>Password</label><input id="l_p" type="password">
+  <label>Login as</label><select id="l_r"><option value="user">Customer</option><option value="admin">Admin</option></select>
+  <p><button onclick="doLogin()">Login</button></p>
+  <p class="muted">Demo: any credentials work. New customer? <a href="#" onclick="show('register');return false">Register</a></p></div></section>
+<section class="page" id="register"><div class="card narrow"><h1>Register</h1>
+  <label>Full name</label><input id="r_n"><label>Email</label><input id="r_e" type="email"><label>Phone</label><input id="r_ph"><label>Username</label><input id="r_u"><label>Password</label><input id="r_p" type="password">
+  <p><button onclick="doRegister()">Register</button></p></div></section>
+
+<!-- ========== CUSTOMER ========== -->
+<section class="page" id="shop">
+  <div class="card"><h1>Browse Cakes</h1><div class="row">
+    <div><label>Search</label><input id="f_q" oninput="drawCakes()" placeholder="Cake name, flavour..."></div>
+    <div><label>Category</label><select id="f_c" onchange="fillSub();drawCakes()"></select></div>
+    <div><label>Sub category</label><select id="f_s" onchange="drawCakes()"></select></div>
+    <div><label>Max price (Rs.)</label><select id="f_p" onchange="drawCakes()"><option value="0">Any</option><option value="500">Up to 500</option><option value="800">Up to 800</option><option value="1200">Up to 1200</option><option value="2000">Up to 2000</option></select></div>
+  </div></div>
+  <div class="grid" id="cakes"></div></section>
+
+<section class="page" id="detail"><div class="card"><div class="detail" id="dt"></div></div></section>
+
+<section class="page" id="cart"><h1>My Cart</h1><div class="tw" id="ct"></div></section>
+
+<section class="page" id="checkout"><div class="card narrow"><h1>Place Order</h1><div class="steps"><span>1 Cart</span><span class="on">2 Delivery</span><span>3 Pay</span></div>
+  <p id="co_sum"></p>
+  <label>Delivery address</label><select id="co_a" onchange="">
+  </select>
+  <label>Delivery date</label><input type="date" id="co_d">
+  <label>Payment method</label><select id="co_pm"><option>Cash on delivery</option><option>UPI</option><option>Credit / Debit card</option></select>
+  <p><button onclick="placeOrder()">Place Order</button> <button class="grey" onclick="show('cart')">Back</button></p></div></section>
+
+<section class="page" id="address"><h1>Shipping Addresses</h1><div class="tw" id="ad_list"></div>
+  <div class="card" style="margin-top:14px"><h2 id="ad_h">Add Shipping Address</h2><input type="hidden" id="ad_i">
+  <div class="row"><div><label>Name</label><input id="ad_n"></div><div><label>Phone</label><input id="ad_ph"></div></div>
+  <label>Address</label><input id="ad_a"><div class="row"><div><label>City</label><input id="ad_c"></div><div><label>Pincode</label><input id="ad_pc" maxlength="6"></div></div>
+  <p><button onclick="saveAddr()">Save Address</button> <button class="grey" onclick="clearAddr()">Clear</button></p></div></section>
+
+<section class="page" id="orders"><h1>My Orders</h1><div class="tw" id="od"></div></section>
+
+<section class="page" id="track"><div class="card narrow"><h1>Shipping Status</h1><div id="tr"></div><p><button class="grey" onclick="show('orders')">Back</button></p></div></section>
+
+<!-- ========== ADMIN ========== -->
+<section class="page" id="a_products"><h1>Manage Products</h1>
+  <div class="card"><h2 id="ap_h">Post Cake Details</h2><input type="hidden" id="ap_i">
+   <div class="row"><div><label>Cake name</label><input id="ap_n"></div><div><label>Category</label><input id="ap_c" list="catlist" placeholder="Birthday"></div><div><label>Sub category</label><input id="ap_s" placeholder="Chocolate"></div></div>
+   <datalist id="catlist"></datalist>
+   <div class="row"><div><label>Price per kg (Rs.)</label><input id="ap_pr" type="number" value="600"></div><div><label>Upload image</label><input id="ap_img" type="file" accept="image/*"></div></div>
+   <label>Description</label><textarea id="ap_d"></textarea>
+   <p><button onclick="saveCake()">Save Cake</button> <button class="grey" onclick="clearCake()">Clear</button></p></div>
+  <div class="tw" id="ap_list"></div></section>
+<section class="page" id="a_orders"><h1>Manage Orders</h1><div class="tw" id="ao"></div></section>
+</main>
+
+<script>
+function $(i){return document.getElementById(i)}
+function pad(n){return (n<10?'0':'')+n}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function msg(t,ok){$('msg').innerHTML='<div class="msg '+(ok===false?'e':'s')+'">'+t+'</div>';window.scrollTo(0,0)}
+function show(id){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!==id});$('msg').innerHTML='';window.scrollTo(0,0);if(window['on_'+id])window['on_'+id]();drawNav()}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// ------------------------------------------------ data (in memory)
+var cakes=[
+ {id:1,name:'Black Forest',cat:'Birthday',sub:'Chocolate',price:650,icon:'\u{1F382}',img:'',desc:'Chocolate sponge layered with cherries and whipped cream.'},
+ {id:2,name:'Red Velvet',cat:'Birthday',sub:'Cream Cheese',price:850,icon:'\u{1F370}',img:'',desc:'Soft red sponge with cream cheese frosting.'},
+ {id:3,name:'Wedding Tier Cake',cat:'Wedding',sub:'Vanilla',price:1800,icon:'\u{1F492}',img:'',desc:'Elegant 3-tier vanilla cake with fondant flowers.'},
+ {id:4,name:'Pineapple Delight',cat:'Birthday',sub:'Fruit',price:550,icon:'\u{1F34D}',img:'',desc:'Fresh pineapple chunks over light vanilla sponge.'},
+ {id:5,name:'Anniversary Truffle',cat:'Anniversary',sub:'Chocolate',price:1100,icon:'\u{1F36B}',img:'',desc:'Rich dark chocolate truffle with ganache.'},
+ {id:6,name:'Butterscotch Crunch',cat:'Anniversary',sub:'Butterscotch',price:700,icon:'\u{1F36F}',img:'',desc:'Butterscotch cream with caramel crunch topping.'}];
+var users=[], cart=[], addrs=[], orders=[], nextOrder=7001, me=null, curCake=null;
+var STATUS=['Order Placed','Preparing','Out for Delivery','Delivered'];
+var SHIP_LOC={'Order Placed':'Sweet Bites shop','Preparing':'Bakery kitchen','Out for Delivery':'On the way to customer','Delivered':'Delivered to address'};
+
+function drawNav(){
+  var l;
+  if(!me)l=[['login','Login'],['register','Register']];
+  else if(me.role==='user')l=[['shop','Cakes'],['cart','Cart ('+cart.length+')'],['address','Shipping Address'],['orders','My Orders'],['out','Logout']];
+  else l=[['a_products','Manage Products'],['a_orders','Manage Orders'],['out','Logout']];
+  $('nav').innerHTML=l.map(function(x){return '<a onclick="'+(x[0]==='out'?'logout()':"show('"+x[0]+"')")+'">'+x[1]+'</a>'}).join('');
+}
+function logout(){me=null;cart=[];show('login');msg('Logged out.')}
+function doLogin(){
+  if(!$('l_u').value.trim()||!$('l_p').value)return msg('Enter your credentials.',false);
+  me={u:$('l_u').value.trim(),role:$('l_r').value};show(me.role==='admin'?'a_products':'shop');msg('Welcome, '+esc(me.u)+'!');
+}
+function doRegister(){
+  if(!$('r_n').value.trim()||!$('r_u').value.trim()||!$('r_p').value||!$('r_e').value.includes('@'))return msg('Fill in all fields with a valid email.',false);
+  users.push($('r_u').value.trim());show('login');msg('Registration successful. Please log in.');
+}
+
+// ------------------------------------------------ browse / search / filter
+function cats(){var c=[];cakes.forEach(function(k){if(c.indexOf(k.cat)<0)c.push(k.cat)});return c}
+function on_shop(){
+  if(!$('f_c').options.length){$('f_c').innerHTML='<option value="">All</option>'+cats().map(function(c){return '<option>'+esc(c)+'</option>'}).join('');fillSub()}
+  drawCakes();
+}
+function fillSub(){
+  var c=$('f_c').value,s=[];cakes.forEach(function(k){if((!c||k.cat===c)&&s.indexOf(k.sub)<0)s.push(k.sub)});
+  $('f_s').innerHTML='<option value="">All</option>'+s.map(function(x){return '<option>'+esc(x)+'</option>'}).join('');
+}
+function thumb(k){return k.img?'<img src="'+k.img+'" alt="">':k.icon}
+function drawCakes(){
+  var q=$('f_q').value.toLowerCase(),c=$('f_c').value,s=$('f_s').value,p=+$('f_p').value;
+  var r=cakes.filter(function(k){return (!q||(k.name+' '+k.sub+' '+k.cat).toLowerCase().indexOf(q)>=0)&&(!c||k.cat===c)&&(!s||k.sub===s)&&(!p||k.price<=p)});
+  $('cakes').innerHTML=r.length?r.map(function(k){return '<div class="cake"><div class="img">'+thumb(k)+'</div><div class="b"><b>'+esc(k.name)+'</b><br><span class="muted">'+esc(k.cat)+' &middot; '+esc(k.sub)+'</span><br><b>Rs. '+k.price+'</b> / kg<p><button class="s" onclick="openCake('+k.id+')">View Details</button></p></div></div>'}).join(''):'<div class="card">No cakes match your search.</div>';
+}
+function openCake(id){curCake=cakes.find(function(k){return k.id===id});show('detail')}
+function on_detail(){
+  var k=curCake;
+  $('dt').innerHTML='<div class="img">'+thumb(k)+'</div><div style="flex:1;min-width:240px"><h1>'+esc(k.name)+'</h1><p class="muted">'+esc(k.cat)+' &middot; '+esc(k.sub)+'</p><p>'+esc(k.desc)+'</p><p><b>Rs. '+k.price+' per kg</b></p>'+
+   '<div class="row"><div><label>Size</label><select id="d_sz"><option value="0.5">0.5 kg</option><option value="1" selected>1 kg</option><option value="2">2 kg</option><option value="3">3 kg</option></select></div><div><label>Message on cake</label><input id="d_msg" maxlength="30" placeholder="Happy Birthday Riya"></div></div>'+
+   '<p><button onclick="addCart()">Add to Cart</button> <button class="grey" onclick="show(\'shop\')">Back</button></p></div>';
+}
+function addCart(){cart.push({cake:curCake.id,size:+$('d_sz').value,text:$('d_msg').value.trim()});show('shop');msg(esc(curCake.name)+' added to cart.')}
+
+// ------------------------------------------------ cart + order
+function cakeOf(id){return cakes.find(function(k){return k.id===id})||{name:'(removed)',price:0}}
+function lineAmt(l){return cakeOf(l.cake).price*l.size}
+function on_cart(){
+  var tot=0;
+  var rows=cart.map(function(l,i){tot+=lineAmt(l);return '<tr><td>'+esc(cakeOf(l.cake).name)+'</td><td>'+l.size+' kg</td><td>'+esc(l.text||'-')+'</td><td>Rs. '+lineAmt(l)+'</td><td><button class="s red" onclick="rmCart('+i+')">Remove</button></td></tr>'}).join('')||'<tr><td colspan="5">Your cart is empty.</td></tr>';
+  $('ct').innerHTML='<table><tr><th>Cake</th><th>Size</th><th>Message</th><th>Amount</th><th></th></tr>'+rows+'</table><p><b>Total: Rs. '+tot+'</b></p><p><button '+(cart.length?'':'disabled')+' onclick="show(\'checkout\')">Place Order</button> <button class="grey" onclick="show(\'shop\')">Continue Shopping</button></p>';
+}
+function rmCart(i){cart.splice(i,1);on_cart();drawNav()}
+function on_checkout(){
+  $('co_sum').innerHTML='Items: '+cart.length+' &middot; <b>Total Rs. '+cart.reduce(function(s,l){return s+lineAmt(l)},0)+'</b>';
+  $('co_a').innerHTML=addrs.length?addrs.map(function(a,i){return '<option value="'+i+'">'+esc(a.n)+', '+esc(a.a)+', '+esc(a.c)+' - '+esc(a.pc)+'</option>'}).join(''):'<option value="">-- add a shipping address first --</option>';
+  $('co_d').value=addDays(2);$('co_d').min=addDays(1);
+}
+function placeOrder(){
+  if(!addrs.length)return show('address'),msg('Please add a shipping address first.',false);
+  if($('co_d').value<addDays(1))return msg('Choose a delivery date from tomorrow onwards.',false);
+  var a=addrs[+$('co_a').value],id=nextOrder++;
+  orders.push({id:id,by:me.u,items:cart.slice(),total:cart.reduce(function(s,l){return s+lineAmt(l)},0),addr:a.n+', '+a.a+', '+a.c+' - '+a.pc,date:$('co_d').value,pay:$('co_pm').value,status:'Order Placed',placed:addDays(0)});
+  cart=[];show('orders');msg('Order #'+id+' placed. A confirmation email has been sent.');
+}
+
+// ------------------------------------------------ shipping address
+function on_address(){
+  $('ad_list').innerHTML='<table><tr><th>Name</th><th>Phone</th><th>Address</th><th>City</th><th>Pincode</th><th></th></tr>'+(addrs.map(function(a,i){return '<tr><td>'+esc(a.n)+'</td><td>'+esc(a.ph)+'</td><td>'+esc(a.a)+'</td><td>'+esc(a.c)+'</td><td>'+esc(a.pc)+'</td><td><button class="s" onclick="editAddr('+i+')">Update</button> <button class="s red" onclick="delAddr('+i+')">Delete</button></td></tr>'}).join('')||'<tr><td colspan="6">No addresses saved.</td></tr>')+'</table>';
+}
+function clearAddr(){['ad_i','ad_n','ad_ph','ad_a','ad_c','ad_pc'].forEach(function(i){$(i).value=''});$('ad_h').textContent='Add Shipping Address'}
+function editAddr(i){var a=addrs[i];$('ad_i').value=i;$('ad_n').value=a.n;$('ad_ph').value=a.ph;$('ad_a').value=a.a;$('ad_c').value=a.c;$('ad_pc').value=a.pc;$('ad_h').textContent='Update Shipping Address'}
+function saveAddr(){
+  var a={n:$('ad_n').value.trim(),ph:$('ad_ph').value.trim(),a:$('ad_a').value.trim(),c:$('ad_c').value.trim(),pc:$('ad_pc').value.trim()};
+  if(!a.n||!a.a||!a.c||!/^[0-9]{6}$/.test(a.pc)||a.ph.replace(/\D/g,'').length<10)return msg('Fill in all fields: 10-digit phone and 6-digit pincode.',false);
+  var i=$('ad_i').value;if(i!=='')addrs[+i]=a;else addrs.push(a);clearAddr();on_address();msg('Address saved.');
+}
+function delAddr(i){addrs.splice(i,1);on_address()}
+
+// ------------------------------------------------ my orders + shipping status
+function on_orders(){
+  var r=orders.filter(function(o){return o.by===me.u}).map(function(o){
+    return '<tr><td>#'+o.id+'</td><td>'+o.items.map(function(l){return esc(cakeOf(l.cake).name)+' ('+l.size+'kg)'}).join(', ')+'</td><td>'+o.date+'</td><td>Rs. '+o.total+'</td><td class="'+(o.status==='Delivered'?'ok':'warn')+'">'+o.status+'</td><td><button class="s" onclick="trackOrder('+o.id+')">View Shipping Status</button></td></tr>'}).join('')||'<tr><td colspan="6">No orders yet.</td></tr>';
+  $('od').innerHTML='<table><tr><th>Order</th><th>Items</th><th>Delivery date</th><th>Total</th><th>Status</th><th></th></tr>'+r+'</table>';
+}
+function trackOrder(id){window.trk=orders.find(function(o){return o.id===id});show('track')}
+function on_track(){
+  var o=window.trk,at=STATUS.indexOf(o.status);
+  $('tr').innerHTML='<p><b>Order #'+o.id+'</b><br>Deliver to: '+esc(o.addr)+'<br>Expected: '+o.date+'</p><div class="steps">'+STATUS.map(function(s,i){return '<span class="'+(i<=at?'on':'')+'">'+s+'</span>'}).join('')+'</div><p>Current location: <b>'+SHIP_LOC[o.status]+'</b></p>';
+}
+
+// ------------------------------------------------ admin
+function on_a_products(){
+  $('catlist').innerHTML=cats().map(function(c){return '<option value="'+esc(c)+'">'}).join('');
+  $('ap_list').innerHTML='<table><tr><th>Image</th><th>Name</th><th>Category</th><th>Sub</th><th>Price/kg</th><th></th></tr>'+cakes.map(function(k){
+    return '<tr><td style="width:60px;font-size:1.6rem">'+(k.img?'<img src="'+k.img+'" style="width:50px;height:40px;object-fit:cover">':k.icon)+'</td><td>'+esc(k.name)+'</td><td>'+esc(k.cat)+'</td><td>'+esc(k.sub)+'</td><td>Rs. '+k.price+'</td><td><button class="s" onclick="editCake('+k.id+')">Edit</button> <button class="s red" onclick="delCake('+k.id+')">Delete</button></td></tr>'}).join('')+'</table>';
+}
+function clearCake(){['ap_i','ap_n','ap_c','ap_s','ap_d','ap_img'].forEach(function(i){$(i).value=''});$('ap_pr').value=600;$('ap_h').textContent='Post Cake Details'}
+function editCake(id){var k=cakes.find(function(x){return x.id===id});$('ap_i').value=id;$('ap_n').value=k.name;$('ap_c').value=k.cat;$('ap_s').value=k.sub;$('ap_pr').value=k.price;$('ap_d').value=k.desc;$('ap_h').textContent='Update Cake Details';window.scrollTo(0,0)}
+function saveCake(){
+  var n=$('ap_n').value.trim(),c=$('ap_c').value.trim(),s=$('ap_s').value.trim(),p=+$('ap_pr').value;
+  if(!n||!c||!s||!(p>0))return msg('Enter name, category, sub category and price.',false);
+  var f=$('ap_img').files[0];
+  function finish(img){
+    var id=+$('ap_i').value,k=id?cakes.find(function(x){return x.id===id}):null;
+    if(!k){k={id:cakes.reduce(function(m,x){return Math.max(m,x.id)},0)+1,icon:'\u{1F382}',img:''};cakes.push(k)}
+    k.name=n;k.cat=c;k.sub=s;k.price=p;k.desc=$('ap_d').value;if(img)k.img=img;
+    clearCake();on_a_products();msg('Cake saved.');
+  }
+  if(f){if(f.size>1024*1024)return msg('Image must be under 1 MB.',false);var r=new FileReader();r.onload=function(){finish(r.result)};r.readAsDataURL(f)}else finish('');
+}
+function delCake(id){if(confirm('Delete this cake?')){cakes=cakes.filter(function(k){return k.id!==id});on_a_products()}}
+function on_a_orders(){
+  $('ao').innerHTML='<table><tr><th>Order</th><th>Customer</th><th>Items</th><th>Ship to</th><th>Delivery</th><th>Total</th><th>Status / shipping location</th></tr>'+(orders.map(function(o,i){
+    return '<tr><td>#'+o.id+'</td><td>'+esc(o.by)+'</td><td>'+o.items.map(function(l){return esc(cakeOf(l.cake).name)+' ('+l.size+'kg'+(l.text?', "'+esc(l.text)+'"':'')+')'}).join('<br>')+'</td><td>'+esc(o.addr)+'</td><td>'+o.date+'</td><td>Rs. '+o.total+'</td><td><select id="os'+i+'">'+STATUS.map(function(s){return '<option'+(s===o.status?' selected':'')+'>'+s+'</option>'}).join('')+'</select> <button class="s" onclick="setStatus('+i+')">Update</button><br><span class="muted">'+SHIP_LOC[o.status]+'</span></td></tr>'}).join('')||'<tr><td colspan="7">No orders yet.</td></tr>')+'</table>';
+}
+function setStatus(i){orders[i].status=$('os'+i).value;on_a_orders();msg('Order #'+orders[i].id+' status updated to '+orders[i].status+'.')}
+
+show('login');
+</script>
+</body>
+</html>

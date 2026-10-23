@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City Library</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#f4f6f9;color:#222;min-height:100vh;display:flex;flex-direction:column}
+header{background:#1f3a5f;color:#fff}
+.bar{max-width:1100px;margin:auto;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+.brand{font-size:1.3rem;font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:4px}
+nav a{color:#dce6f5;text-decoration:none;padding:6px 10px;border-radius:6px;font-size:.92rem;cursor:pointer}
+nav a:hover{background:#2f5287;color:#fff}
+nav a.out{background:#b8423a;color:#fff}
+main{flex:1;width:100%;max-width:1100px;margin:24px auto;padding:0 16px}
+footer{text-align:center;padding:14px;font-size:.85rem;color:#666}
+h1{margin-top:0;color:#1f3a5f}
+.card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:20px}
+.narrow{max-width:460px;margin:30px auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.stat{background:#fff;border-left:5px solid #1f3a5f;border-radius:8px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.stat b{display:block;font-size:1.8rem;color:#1f3a5f}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:.92rem}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid #bbc3cf;border-radius:6px;font:inherit}
+textarea{min-height:100px}
+.btn{display:inline-block;background:#1f3a5f;color:#fff;border:0;padding:9px 16px;border-radius:6px;cursor:pointer;font:inherit;font-size:.92rem;text-decoration:none}
+.btn:hover{background:#2f5287}
+.btn.red{background:#b8423a}.btn.green{background:#2e8540}.btn.small{padding:5px 10px;font-size:.82rem}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.row>*{flex:1;min-width:140px}.row .btn{flex:0 0 auto}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #e6e9ef;font-size:.92rem}
+th{background:#e9eef6;color:#1f3a5f}
+.table-wrap{overflow-x:auto}
+.flash{padding:10px 14px;border-radius:6px;margin-bottom:14px}
+.flash.success{background:#def3e2;color:#1d5a2a}.flash.error{background:#fbe0de;color:#8a2822}
+.badge{padding:2px 8px;border-radius:10px;font-size:.78rem;color:#fff}
+.badge.ok{background:#2e8540}.badge.warn{background:#d98e04}.badge.bad{background:#b8423a}
+.muted{color:#666}
+</style>
+</head>
+<body>
+<header><div class="bar"><div class="brand">&#128218; City Library</div><nav id="nav"></nav></div></header>
+<main><div id="msg"></div><div id="view"></div></main>
+<footer>City Library &middot; Internet Programming Lab &ndash; Experiment 1</footer>
+
+<script>
+// ------------------------------------------------------------ settings
+var LOAN_DAYS = 14;     // loan period in days
+var FINE_PER_DAY = 2;   // Rs. per late day
+
+// ------------------------------------------------------------ storage
+function load(k, d){ try{ var v = localStorage.getItem('lib_'+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem('lib_'+k, JSON.stringify(v)); }catch(e){ alert('Storage full. Delete some material.'); } }
+function nextId(arr){ return arr.length ? Math.max.apply(null, arr.map(function(x){return x.id;})) + 1 : 1; }
+
+var users = load('users', null), books = load('books', null), issues = load('issues', []),
+    materials = load('materials', []), messages = load('messages', []);
+if (!users) { users = [{id:1,name:'Librarian',username:'admin',password:'admin123',email:'',phone:'',role:'admin'}]; save('users', users); }
+if (!books) {
+  books = [
+    {id:1,title:'Introduction to Algorithms',author:'Cormen',isbn:'9780262033848',category:'Computer Science',total:3,avail:3},
+    {id:2,title:'Database System Concepts',author:'Silberschatz',isbn:'9780078022159',category:'Computer Science',total:2,avail:2},
+    {id:3,title:'Engineering Mathematics',author:'B.S. Grewal',isbn:'9788174091215',category:'Mathematics',total:4,avail:4},
+    {id:4,title:'Wings of Fire',author:'A.P.J. Abdul Kalam',isbn:'9788173711466',category:'Biography',total:2,avail:2}
+  ]; save('books', books);
+}
+var me = null;
+try { me = JSON.parse(sessionStorage.getItem('lib_me')); } catch(e) {}
+
+// ------------------------------------------------------------ helpers
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function fmt(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function today(){ return fmt(new Date()); }
+function addDays(iso, n){ var p = iso.split('-'); return fmt(new Date(+p[0], +p[1]-1, +p[2] + n)); }
+function daysBetween(a, b){ var x = a.split('-'), y = b.split('-'); return Math.round((Date.UTC(+y[0], +y[1]-1, +y[2]) - Date.UTC(+x[0], +x[1]-1, +x[2])) / 86400000); }
+function fineFor(it){ var end = it.returned || today(); return Math.max(0, daysBetween(it.due, end)) * FINE_PER_DAY; }
+function bookOf(id){ return books.find(function(b){return b.id === id;}) || {title:'(deleted)',author:''}; }
+function userOf(id){ return users.find(function(u){return u.id === id;}) || {name:'(deleted)'}; }
+function flash(text, type){ $('msg').innerHTML = '<div class="flash '+(type||'success')+'">'+esc(text)+'</div>'; window.scrollTo(0,0); }
+function clearFlash(){ $('msg').innerHTML = ''; }
+function val(id){ return $(id).value.trim(); }
+function badge(cls, t){ return '<span class="badge '+cls+'">'+t+'</span>'; }
+
+// ------------------------------------------------------------ navigation
+function go(page, arg){ clearFlash(); pages[page](arg); renderNav(); }
+function renderNav(){
+  var h = '';
+  if (me && me.role === 'admin') {
+    h += link('adminHome','Dashboard') + link('adminBooks','Books') + link('issueForm','Issue') +
+         link('adminIssues','Issues / Return') + link('adminFines','Fines') + link('adminMaterials','Material') + link('adminMessages','Messages');
+  } else if (me) {
+    h += link('userHome','Home') + link('search','Search Book') + link('history','My Borrow History') +
+         link('myFines','Check Fine') + link('materialSearch','Material') + link('profile','My Profile');
+  }
+  if (me) h += link('contact','Contact') + '<a class="out" onclick="logout()">Logout ('+esc(me.name)+')</a>';
+  else h += link('login','Login') + link('register','Register') + link('contact','Contact');
+  $('nav').innerHTML = h;
+}
+function link(p, t){ return '<a onclick="go(\''+p+'\')">'+t+'</a>'; }
+function logout(){ me = null; sessionStorage.removeItem('lib_me'); go('login'); }
+
+// ------------------------------------------------------------ pages
+var pages = {};
+
+pages.login = function(){
+  $('view').innerHTML = '<div class="card narrow"><h1>Login</h1>' +
+    '<label>Username</label><input id="u"><label>Password</label><input id="p" type="password">' +
+    '<p><button class="btn" onclick="doLogin()">Login</button></p>' +
+    '<p class="muted">New student? <a href="#" onclick="go(\'register\');return false">Register here</a>.</p></div>';
+};
+function doLogin(){
+  var u = users.find(function(x){ return x.username === val('u') && x.password === $('p').value; });
+  if (!u) return flash('Invalid username or password.', 'error');
+  me = u; sessionStorage.setItem('lib_me', JSON.stringify(u));
+  go(u.role === 'admin' ? 'adminHome' : 'userHome');
+}
+
+pages.register = function(){
+  $('view').innerHTML = '<div class="card narrow"><h1>Student Registration</h1>' +
+    '<label>Full name</label><input id="n"><label>Username</label><input id="u">' +
+    '<label>Email</label><input id="e" type="email"><label>Phone</label><input id="ph" maxlength="10">' +
+    '<label>Password</label><input id="p" type="password">' +
+    '<p><button class="btn" onclick="doRegister()">Register</button></p></div>';
+};
+function doRegister(){
+  if (!val('n') || !val('u') || !$('p').value) return flash('Name, username and password are required.', 'error');
+  if (users.some(function(x){return x.username === val('u');})) return flash('That username is already taken.', 'error');
+  if (val('ph') && !/^[0-9]{10}$/.test(val('ph'))) return flash('Phone must be 10 digits.', 'error');
+  users.push({id:nextId(users),name:val('n'),username:val('u'),password:$('p').value,email:val('e'),phone:val('ph'),role:'user'});
+  save('users', users); go('login'); flash('Registration successful. Please log in.');
+}
+
+pages.contact = function(){
+  $('view').innerHTML = '<div class="card narrow"><h1>Contact Us</h1>' +
+    '<label>Name</label><input id="n"><label>Email</label><input id="e" type="email">' +
+    '<label>Message</label><textarea id="m"></textarea>' +
+    '<p><button class="btn" onclick="doContact()">Send</button></p></div>';
+};
+function doContact(){
+  if (!val('n') || !val('m')) return flash('Name and message are required.', 'error');
+  messages.unshift({id:nextId(messages),name:val('n'),email:val('e'),message:val('m'),date:today()});
+  save('messages', messages); pages.contact(); flash('Thank you! Your message has been sent to the library.');
+}
+
+// ---------- admin
+pages.adminHome = function(){
+  var tot = 0, av = 0; books.forEach(function(b){ tot += b.total; av += b.avail; });
+  var out = issues.filter(function(i){return !i.returned;}).length;
+  var st = users.filter(function(u){return u.role === 'user';}).length;
+  $('view').innerHTML = '<h1>Librarian Dashboard</h1><div class="stats">' +
+    '<div class="stat"><b>'+tot+'</b>Total book copies</div><div class="stat"><b>'+av+'</b>Available now</div>' +
+    '<div class="stat"><b>'+out+'</b>Currently issued</div><div class="stat"><b>'+st+'</b>Registered students</div></div>' +
+    '<div class="card"><button class="btn" onclick="go(\'bookForm\')">+ Add Book</button> ' +
+    '<button class="btn" onclick="go(\'issueForm\')">Issue Book</button> ' +
+    '<button class="btn" onclick="go(\'adminIssues\',\'pending\')">Pending Returns</button> ' +
+    '<button class="btn" onclick="go(\'adminMaterials\')">Upload Material</button></div>';
+};
+
+function bookMatch(b, q){ q = q.toLowerCase(); return [b.title,b.author,b.isbn,b.category].some(function(x){ return String(x||'').toLowerCase().indexOf(q) >= 0; }); }
+
+pages.adminBooks = function(){
+  $('view').innerHTML = '<h1>Books</h1><div class="card row"><div><label>Search</label><input id="q" oninput="drawBooks()" placeholder="Title, author, ISBN, category"></div>' +
+    '<button class="btn green" onclick="go(\'bookForm\')">+ Add Book</button></div><div id="list"></div>';
+  drawBooks();
+};
+function drawBooks(){
+  var q = $('q') ? val('q') : '';
+  var rows = books.filter(function(b){return bookMatch(b,q);}).map(function(b){
+    return '<tr><td>'+b.id+'</td><td>'+esc(b.title)+'</td><td>'+esc(b.author)+'</td><td>'+esc(b.isbn)+'</td><td>'+esc(b.category)+'</td><td>'+b.avail+' / '+b.total+'</td>' +
+      '<td><button class="btn small" onclick="go(\'bookForm\','+b.id+')">Edit</button> <button class="btn small red" onclick="delBook('+b.id+')">Delete</button></td></tr>';
+  }).join('') || '<tr><td colspan="7" class="muted">No books found.</td></tr>';
+  $('list').innerHTML = '<div class="table-wrap"><table><tr><th>ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Category</th><th>Available / Total</th><th>Actions</th></tr>'+rows+'</table></div>';
+}
+pages.bookForm = function(id){
+  var b = id ? books.find(function(x){return x.id === id;}) : null;
+  $('view').innerHTML = '<div class="card narrow"><h1>'+(b?'Update Book':'Add Book')+'</h1>' +
+    '<label>Title</label><input id="t" value="'+esc(b&&b.title)+'"><label>Author</label><input id="a" value="'+esc(b&&b.author)+'">' +
+    '<label>ISBN</label><input id="i" value="'+esc(b&&b.isbn)+'"><label>Category</label><input id="c" value="'+esc(b&&b.category)+'">' +
+    '<label>Total copies</label><input id="n" type="number" min="1" value="'+(b?b.total:1)+'">' +
+    '<p><button class="btn" onclick="saveBook('+(id||0)+')">Save</button> <button class="btn red" onclick="go(\'adminBooks\')">Cancel</button></p></div>';
+};
+function saveBook(id){
+  var n = parseInt($('n').value, 10);
+  if (!val('t') || !val('a') || !(n >= 1)) return flash('Title, author and at least 1 copy are required.', 'error');
+  if (id) {
+    var b = books.find(function(x){return x.id === id;}), out = b.total - b.avail;
+    if (n < out) return flash(out + ' copies are currently issued; total cannot be lower.', 'error');
+    b.title = val('t'); b.author = val('a'); b.isbn = val('i'); b.category = val('c'); b.total = n; b.avail = n - out;
+  } else books.push({id:nextId(books),title:val('t'),author:val('a'),isbn:val('i'),category:val('c'),total:n,avail:n});
+  save('books', books); go('adminBooks'); flash(id ? 'Book updated.' : 'Book added.');
+}
+function delBook(id){
+  if (issues.some(function(i){return i.bookId === id && !i.returned;})) return flash('Cannot delete: copies of this book are still issued.', 'error');
+  if (!confirm('Delete this book?')) return;
+  books = books.filter(function(b){return b.id !== id;}); issues = issues.filter(function(i){return i.bookId !== id;});
+  save('books', books); save('issues', issues); drawBooks(); flash('Book deleted.');
+}
+
+pages.issueForm = function(){
+  var st = users.filter(function(u){return u.role === 'user';});
+  $('view').innerHTML = '<div class="card narrow"><h1>Issue Book to Student</h1><label>Student</label><select id="s"><option value="">-- select student --</option>' +
+    st.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+' ('+esc(u.username)+')</option>';}).join('') + '</select>' +
+    '<label>Book</label><select id="b"><option value="">-- select book --</option>' +
+    books.filter(function(b){return b.avail > 0;}).map(function(b){return '<option value="'+b.id+'">'+esc(b.title)+' - '+esc(b.author)+' ('+b.avail+' left)</option>';}).join('') + '</select>' +
+    '<p class="muted">Loan period is '+LOAN_DAYS+' days. Due date is set automatically.</p><p><button class="btn" onclick="doIssue()">Issue Book</button></p></div>';
+};
+function doIssue(){
+  var sid = parseInt($('s').value, 10), bid = parseInt($('b').value, 10);
+  if (!sid || !bid) return flash('Select a student and a book.', 'error');
+  var b = books.find(function(x){return x.id === bid;});
+  if (!b || b.avail < 1) return flash('No copies available for this book.', 'error');
+  if (issues.some(function(i){return i.bookId === bid && i.userId === sid && !i.returned;})) return flash('This student already has this book.', 'error');
+  var due = addDays(today(), LOAN_DAYS);
+  issues.push({id:nextId(issues),bookId:bid,userId:sid,issued:today(),due:due,returned:null,fine:0});
+  b.avail--; save('issues', issues); save('books', books);
+  go('adminIssues'); flash('Book issued. Due date: ' + due);
+}
+
+pages.adminIssues = function(show){
+  show = show || 'all';
+  var list = issues.filter(function(i){ return show === 'all' || (show === 'pending' ? !i.returned : !!i.returned); }).slice().reverse();
+  var rows = list.map(function(i){
+    var f = i.returned ? i.fine : fineFor(i);
+    var st = i.returned ? badge('ok','Returned') : (f > 0 ? badge('bad','Overdue') : badge('warn','Issued')) + ' <button class="btn small" onclick="doReturn('+i.id+')">Return</button>';
+    return '<tr><td>'+i.id+'</td><td>'+esc(userOf(i.userId).name)+'</td><td>'+esc(bookOf(i.bookId).title)+'</td><td>'+i.issued+'</td><td>'+i.due+'</td><td>'+(i.returned||'-')+'</td><td>'+f+'</td><td>'+st+'</td></tr>';
+  }).join('') || '<tr><td colspan="8" class="muted">Nothing to show.</td></tr>';
+  $('view').innerHTML = '<h1>Issued Books &amp; Return Status</h1><p>' +
+    ['all','pending','returned'].map(function(s){ return '<button class="btn small '+(s===show?'':'green')+'" onclick="go(\'adminIssues\',\''+s+'\')">'+{all:'All',pending:'Not returned',returned:'Returned'}[s]+'</button> '; }).join('') +
+    '</p><div class="table-wrap"><table><tr><th>#</th><th>Student</th><th>Book</th><th>Issue date</th><th>Due date</th><th>Return date</th><th>Fine (Rs.)</th><th>Status</th></tr>'+rows+'</table></div>';
+};
+function doReturn(id){
+  var i = issues.find(function(x){return x.id === id;}); if (!i || i.returned) return;
+  i.returned = today(); i.fine = fineFor(i);
+  var b = books.find(function(x){return x.id === i.bookId;}); if (b) b.avail++;
+  save('issues', issues); save('books', books);
+  pages.adminIssues(); flash('Book returned. Fine: Rs. ' + i.fine, i.fine ? 'error' : 'success');
+}
+
+function fineTable(list, showStudent){
+  var total = 0;
+  var rows = list.map(function(i){ var f = i.returned ? i.fine : fineFor(i); total += f;
+    return '<tr>'+(showStudent?'<td>'+esc(userOf(i.userId).name)+'</td>':'')+'<td>'+esc(bookOf(i.bookId).title)+'</td><td>'+i.due+'</td><td>'+(i.returned||'Not returned')+'</td><td>'+f+'</td></tr>'; }).join('');
+  return '<p class="muted">Fine rule: Rs. '+FINE_PER_DAY+' per day after the due date.</p><div class="table-wrap"><table><tr>'+(showStudent?'<th>Student</th>':'')+
+    '<th>Book</th><th>Due date</th><th>Return date</th><th>Fine (Rs.)</th></tr>' + (rows || '<tr><td colspan="5" class="muted">No fines.</td></tr>') + '</table></div><p><b>Total fine: Rs. '+total+'</b></p>';
+}
+function withFine(list){ return list.filter(function(i){ return (i.returned ? i.fine : fineFor(i)) > 0; }); }
+pages.adminFines = function(){ $('view').innerHTML = '<h1>Fines</h1>' + fineTable(withFine(issues), true); };
+
+// material: file stored in the browser as a data URL
+pages.adminMaterials = function(){
+  var yr = [1,2,3,4].map(function(y){return '<option>'+y+'</option>';}).join('');
+  var sm = [1,2,3,4,5,6,7,8].map(function(s){return '<option>'+s+'</option>';}).join('');
+  var rows = materials.map(function(m){
+    return '<tr><td>'+m.year+'</td><td>'+m.semester+'</td><td>'+esc(m.title)+'</td><td>'+esc(m.subject)+'</td><td>'+m.date+'</td>' +
+      '<td><button class="btn small" onclick="dl('+m.id+')">View / Download</button> <button class="btn small red" onclick="delMat('+m.id+')">Delete</button></td></tr>'; }).join('') ||
+    '<tr><td colspan="6" class="muted">No material uploaded yet.</td></tr>';
+  $('view').innerHTML = '<h1>Study Material (Year / Semester wise)</h1><div class="card row">' +
+    '<div><label>Title</label><input id="t"></div><div><label>Subject</label><input id="s"></div>' +
+    '<div><label>Year</label><select id="y">'+yr+'</select></div><div><label>Semester</label><select id="sm">'+sm+'</select></div>' +
+    '<div><label>File (max 2 MB)</label><input id="f" type="file"></div><button class="btn" onclick="upMat()">Upload</button></div>' +
+    '<div class="table-wrap"><table><tr><th>Year</th><th>Sem</th><th>Title</th><th>Subject</th><th>Uploaded</th><th>Actions</th></tr>'+rows+'</table></div>';
+};
+function upMat(){
+  var f = $('f').files[0];
+  if (!val('t') || !f) return flash('Enter a title and choose a file.', 'error');
+  if (f.size > 2*1024*1024) return flash('File is larger than 2 MB.', 'error');
+  var r = new FileReader();
+  r.onload = function(){
+    materials.push({id:nextId(materials),title:val('t'),subject:val('s'),year:+$('y').value,semester:+$('sm').value,date:today(),name:f.name,data:r.result});
+    save('materials', materials); pages.adminMaterials(); flash('Material uploaded.');
+  };
+  r.readAsDataURL(f);
+}
+function dl(id){
+  var m = materials.find(function(x){return x.id === id;}); if (!m) return;
+  var a = document.createElement('a'); a.href = m.data; a.download = m.name; document.body.appendChild(a); a.click(); a.remove();
+}
+function delMat(id){ if (!confirm('Delete this material?')) return; materials = materials.filter(function(m){return m.id !== id;}); save('materials', materials); pages.adminMaterials(); flash('Material deleted.'); }
+
+pages.adminMessages = function(){
+  var rows = messages.map(function(m){ return '<tr><td>'+m.date+'</td><td>'+esc(m.name)+'</td><td>'+esc(m.email)+'</td><td>'+esc(m.message)+'</td></tr>'; }).join('') ||
+    '<tr><td colspan="4" class="muted">No messages.</td></tr>';
+  $('view').innerHTML = '<h1>Contact Messages</h1><div class="table-wrap"><table><tr><th>Date</th><th>Name</th><th>Email</th><th>Message</th></tr>'+rows+'</table></div>';
+};
+
+// ---------- student
+pages.userHome = function(){
+  var mine = issues.filter(function(i){return i.userId === me.id;});
+  var out = mine.filter(function(i){return !i.returned;}).length, fine = 0;
+  mine.forEach(function(i){ fine += i.returned ? i.fine : fineFor(i); });
+  $('view').innerHTML = '<h1>Welcome, '+esc(me.name)+'</h1><div class="stats"><div class="stat"><b>'+out+'</b>Books currently borrowed</div>' +
+    '<div class="stat"><b>Rs. '+fine+'</b>Fine due</div></div><div class="card"><button class="btn" onclick="go(\'search\')">Search Book</button> ' +
+    '<button class="btn" onclick="go(\'history\')">My Borrow History</button> <button class="btn" onclick="go(\'materialSearch\')">Study Material</button></div>';
+};
+pages.search = function(){
+  $('view').innerHTML = '<h1>Search Books</h1><div class="card"><label>Title / Author / ISBN / Category</label><input id="q" oninput="drawSearch()"></div><div id="list"></div>';
+  drawSearch();
+};
+function drawSearch(){
+  var q = val('q');
+  var rows = books.filter(function(b){return bookMatch(b,q);}).map(function(b){
+    return '<tr><td>'+esc(b.title)+'</td><td>'+esc(b.author)+'</td><td>'+esc(b.isbn)+'</td><td>'+esc(b.category)+'</td><td>'+(b.avail>0?badge('ok',b.avail+' available'):badge('bad','Not available'))+'</td></tr>'; }).join('') ||
+    '<tr><td colspan="5" class="muted">No books found.</td></tr>';
+  $('list').innerHTML = '<div class="table-wrap"><table><tr><th>Title</th><th>Author</th><th>ISBN</th><th>Category</th><th>Availability</th></tr>'+rows+'</table></div>';
+}
+pages.history = function(){
+  var rows = issues.filter(function(i){return i.userId === me.id;}).reverse().map(function(i){
+    var f = i.returned ? i.fine : fineFor(i);
+    var st = i.returned ? badge('ok','Returned') : (f > 0 ? badge('bad','Overdue') : badge('warn','Borrowed'));
+    return '<tr><td>'+esc(bookOf(i.bookId).title)+'</td><td>'+esc(bookOf(i.bookId).author)+'</td><td>'+i.issued+'</td><td>'+i.due+'</td><td>'+(i.returned||'-')+'</td><td>'+f+'</td><td>'+st+'</td></tr>'; }).join('') ||
+    '<tr><td colspan="7" class="muted">You have not borrowed any books yet.</td></tr>';
+  $('view').innerHTML = '<h1>My Borrow History</h1><div class="table-wrap"><table><tr><th>Book</th><th>Author</th><th>Issue date</th><th>Expiry (due) date</th><th>Return date</th><th>Fine (Rs.)</th><th>Status</th></tr>'+rows+'</table></div>';
+};
+pages.myFines = function(){ $('view').innerHTML = '<h1>Check Fine</h1>' + fineTable(withFine(issues.filter(function(i){return i.userId === me.id;})), false); };
+
+pages.materialSearch = function(){
+  var yr = '<option value="">All</option>' + [1,2,3,4].map(function(y){return '<option>'+y+'</option>';}).join('');
+  var sm = '<option value="">All</option>' + [1,2,3,4,5,6,7,8].map(function(s){return '<option>'+s+'</option>';}).join('');
+  $('view').innerHTML = '<h1>Search Study Material</h1><div class="card row"><div><label>Keyword</label><input id="q" oninput="drawMat()"></div>' +
+    '<div><label>Year</label><select id="y" onchange="drawMat()">'+yr+'</select></div><div><label>Semester</label><select id="sm" onchange="drawMat()">'+sm+'</select></div></div><div id="list"></div>';
+  drawMat();
+};
+function drawMat(){
+  var q = val('q').toLowerCase(), y = $('y').value, s = $('sm').value;
+  var rows = materials.filter(function(m){
+    return (!q || (m.title+' '+m.subject).toLowerCase().indexOf(q) >= 0) && (!y || m.year == y) && (!s || m.semester == s);
+  }).map(function(m){ return '<tr><td>'+m.year+'</td><td>'+m.semester+'</td><td>'+esc(m.title)+'</td><td>'+esc(m.subject)+'</td><td><button class="btn small" onclick="dl('+m.id+')">Download</button></td></tr>'; }).join('') ||
+    '<tr><td colspan="5" class="muted">No material found.</td></tr>';
+  $('list').innerHTML = '<div class="table-wrap"><table><tr><th>Year</th><th>Sem</th><th>Title</th><th>Subject</th><th>Download</th></tr>'+rows+'</table></div>';
+}
+
+pages.profile = function(){
+  var u = users.find(function(x){return x.id === me.id;});
+  $('view').innerHTML = '<div class="card narrow"><h1>My Profile</h1><label>Username</label><input value="'+esc(u.username)+'" disabled>' +
+    '<label>Full name</label><input id="n" value="'+esc(u.name)+'"><label>Email</label><input id="e" value="'+esc(u.email)+'">' +
+    '<label>Phone</label><input id="ph" value="'+esc(u.phone)+'"><label>New password (leave blank to keep current)</label><input id="p" type="password">' +
+    '<p><button class="btn" onclick="saveProfile()">Update Profile</button></p></div>';
+};
+function saveProfile(){
+  var u = users.find(function(x){return x.id === me.id;});
+  if (!val('n')) return flash('Name is required.', 'error');
+  u.name = val('n'); u.email = val('e'); u.phone = val('ph'); if ($('p').value) u.password = $('p').value;
+  save('users', users); me = u; sessionStorage.setItem('lib_me', JSON.stringify(u)); renderNav(); flash('Profile updated.');
+}
+
+// ------------------------------------------------------------ start
+if (me) go(me.role === 'admin' ? 'adminHome' : 'userHome'); else go('login');
+</script>
+</body>
+</html>
